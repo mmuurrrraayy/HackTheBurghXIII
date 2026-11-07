@@ -237,6 +237,18 @@ body {
   filter: drop-shadow(0 10px 18px rgba(25, 32, 22, .42));
 }
 
+.trials-page-panel::after {
+  position: absolute;
+  top: 30%;
+  bottom: 30%;
+  left: 50%;
+  width: 1px;
+  background: rgba(112, 64, 37, .55);
+  box-shadow: 1px 0 rgba(255, 241, 207, .45);
+  content: '';
+  pointer-events: none;
+}
+
 .trials-page-artwork {
   display: block;
   width: 100%;
@@ -248,14 +260,16 @@ body {
 
 .trial-setup-header {
   position: absolute;
-  top: 12%;
+  top: 10%;
   left: 50%;
   display: flex;
   width: 84%;
   flex-direction: column;
   align-items: center;
-  gap: clamp(5px, .8vw, 11px);
+  gap: clamp(2px, .3vw, 4px);
+  padding-bottom: 1px;
   transform: translateX(-50%);
+  border-bottom: 1px solid rgba(112, 64, 37, .58);
   color: #3b2115;
   text-align: center;
 }
@@ -266,6 +280,7 @@ body {
   justify-content: center;
   gap: clamp(7px, 1vw, 12px);
   margin: 0;
+  transform: translateY(clamp(2px, .35vw, 5px));
   color: #3b2115;
   font-family: 'IM Fell English SC', Georgia, serif;
   font-size: clamp(20px, 3vw, 40px);
@@ -290,6 +305,495 @@ body {
   font-size: clamp(12px, 1.5vw, 20px);
   font-weight: 500;
   line-height: 1.25;
+}
+
+.trial-agent-selection {
+  position: absolute;
+  top: 31%;
+  left: 7%;
+  display: flex;
+  width: 38%;
+  flex-direction: column;
+  min-width: 0;
+  color: #3b2115;
+  text-align: left;
+}
+
+.agent-selection-heading {
+  font-size: clamp(14px, 1.8vw, 22px);
+}
+
+.agent-selection-icon {
+  display: block;
+  flex: 0 0 auto;
+  width: clamp(24px, 2.8vw, 36px);
+  height: clamp(24px, 2.8vw, 36px);
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.agent-select-wrap {
+  position: relative;
+  margin-top: clamp(5px, .7vw, 10px);
+}
+
+.agent-select-wrap::after {
+  position: absolute;
+  top: calc(50% - 17px);
+  right: clamp(8px, 1vw, 14px);
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #704025;
+  border-bottom: 2px solid #704025;
+  content: '';
+  pointer-events: none;
+  transform: translateY(-70%) rotate(45deg);
+}
+
+.agent-select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: clamp(13px, 1.6vw, 21px);
+  padding: 3px clamp(24px, 2.8vw, 36px) 3px clamp(5px, .65vw, 9px);
+  appearance: none;
+  border: 1px solid #aa7740;
+  border-radius: 4px;
+  background: #fff1cf;
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(10px, 1.15vw, 15px);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.agent-select:focus-visible,
+.add-agent-button:focus-visible,
+.agent-form input:focus-visible {
+  outline: 2px solid #426b43;
+  outline-offset: 2px;
+}
+
+.agent-empty-state {
+  margin: clamp(4px, .5vw, 7px) 0 0;
+  color: #76563d;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(9px, 1vw, 12px);
+  line-height: 1.2;
+}
+
+.add-agent-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  width: 100%;
+  min-height: clamp(28px, 3.2vw, 42px);
+  margin-top: clamp(6px, .75vw, 10px);
+  padding: 4px clamp(7px, .8vw, 11px);
+  border: 1px solid #aa7740;
+  border-radius: 4px;
+  background: #f8e3b5;
+  box-shadow: inset 0 1px rgba(255, 241, 207, .8), 0 2px 0 rgba(112, 64, 37, .22);
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(10px, 1.1vw, 14px);
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: filter .12s ease, transform .12s ease;
+}
+
+.add-agent-button:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.add-agent-button:active {
+  box-shadow: inset 0 1px 2px rgba(75, 43, 26, .25);
+  transform: translateY(1px);
+}
+
+.add-agent-plus {
+  color: #426b43;
+  font-family: Georgia, serif;
+  font-size: 1.25em;
+  line-height: .8;
+}
+
+.add-agent-arrow {
+  color: #704025;
+  font-family: Georgia, serif;
+  font-size: 1.6em;
+  line-height: .7;
+}
+
+.agent-form-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(31, 26, 19, .62);
+}
+
+.agent-form {
+  display: flex;
+  width: min(100%, 380px);
+  flex-direction: column;
+  gap: 12px;
+  padding: clamp(16px, 4vw, 26px);
+  border: 3px solid #704025;
+  border-radius: 7px;
+  background: #f8e3b5;
+  box-shadow: inset 0 0 0 2px #dca35c, 0 8px 24px rgba(20, 14, 9, .45);
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  text-align: left;
+}
+
+.agent-form h2 {
+  margin: 0;
+  font-size: 24px;
+  text-align: left;
+}
+
+.agent-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.agent-form-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.agent-form-description {
+  margin: 0;
+  color: #704025;
+  font-size: 14px;
+  text-align: center;
+}
+
+.agent-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.agent-form label {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.agent-form input {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid #aa7740;
+  border-radius: 4px;
+  background: #fff1cf;
+  color: #3b2115;
+  font: inherit;
+}
+
+.agent-endpoint-help {
+  margin: 0;
+  color: #704025;
+  font-family: Georgia, serif;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.agent-form-error {
+  margin: 0;
+  padding: 8px;
+  border: 1px solid #9a4c32;
+  border-radius: 4px;
+  background: #f3d0b4;
+  color: #6f291b;
+  font-family: Georgia, serif;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.agent-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.agent-form-actions button {
+  min-height: 34px;
+  padding: 5px 10px;
+  border: 1px solid #8e5c34;
+  border-radius: 4px;
+  background: #e7c68b;
+  color: #3b2115;
+  font: 700 14px 'IM Fell English SC', Georgia, serif;
+  cursor: pointer;
+}
+
+.agent-form-actions button[type='submit'] {
+  background: #a86e3c;
+  color: #fff1cf;
+}
+
+.agent-form-actions button:hover {
+  filter: brightness(1.06);
+}
+
+.agent-form-actions button:active {
+  transform: translateY(1px);
+  filter: brightness(.95);
+}
+
+.trial-configuration {
+  position: absolute;
+  top: 31%;
+  right: 7%;
+  display: flex;
+  width: 38%;
+  flex-direction: column;
+  min-width: 0;
+  color: #3b2115;
+  text-align: left;
+}
+
+.configuration-heading {
+  display: flex;
+  align-items: center;
+  gap: clamp(5px, .75vw, 10px);
+  margin: 0;
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(14px, 1.8vw, 22px);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.configuration-leaf {
+  display: block;
+  flex: 0 0 auto;
+  width: clamp(20px, 2.4vw, 32px);
+  height: clamp(20px, 2.4vw, 32px);
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.seed-entry-row {
+  display: flex;
+  align-items: stretch;
+  gap: clamp(4px, .55vw, 8px);
+  margin-top: clamp(3px, .45vw, 7px);
+  min-width: 0;
+}
+
+.seed-input {
+  flex: 1 1 68%;
+  width: 0;
+  min-width: 0;
+  min-height: clamp(13px, 1.6vw, 21px);
+  padding: 3px clamp(5px, .65vw, 9px);
+  border: 1px solid #aa7740;
+  border-radius: 4px;
+  background: #fff1cf;
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(10px, 1.15vw, 15px);
+  font-weight: 700;
+}
+
+.seed-input:focus-visible,
+.difficulty-number:focus-visible {
+  outline: 2px solid #426b43;
+  outline-offset: 2px;
+}
+
+.random-seed-button {
+  flex: 0 0 30%;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transition: filter .12s ease, transform .12s ease;
+}
+
+.random-seed-button img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.random-seed-button:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.random-seed-button:active {
+  filter: brightness(.92);
+  transform: translateY(1px);
+}
+
+.random-seed-button:focus-visible {
+  outline: 2px solid #704025;
+  outline-offset: 2px;
+}
+
+.difficulty-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  margin-top: clamp(6px, .8vw, 12px);
+}
+
+.difficulty-heading {
+  font-size: clamp(13px, 1.6vw, 20px);
+}
+
+.difficulty-icon {
+  display: block;
+  flex: 0 0 auto;
+  width: clamp(17px, 2vw, 26px);
+  height: clamp(17px, 2vw, 26px);
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.difficulty-number {
+  width: clamp(53px, 7vw, 82px);
+  min-width: 0;
+  padding: 2px 3px;
+  border: 1px solid #aa7740;
+  border-radius: 3px;
+  background: #fff1cf;
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(10px, 1.1vw, 14px);
+  font-weight: 700;
+  text-align: center;
+}
+
+.difficulty-slider {
+  display: block;
+  width: 100%;
+  height: clamp(9px, 1.1vw, 14px);
+  margin: clamp(3px, .45vw, 7px) 0 0;
+  appearance: none;
+  border: 1px solid rgba(88, 59, 38, .55);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.difficulty-slider::-webkit-slider-thumb {
+  width: clamp(12px, 1.35vw, 18px);
+  height: clamp(12px, 1.35vw, 18px);
+  appearance: none;
+  border: 2px solid #704025;
+  border-radius: 2px;
+  background: #e7b552;
+  box-shadow: inset 0 0 0 1px #ffdf87, 1px 1px 0 rgba(53, 34, 20, .45);
+}
+
+.difficulty-slider::-moz-range-thumb {
+  width: clamp(9px, 1vw, 14px);
+  height: clamp(9px, 1vw, 14px);
+  border: 2px solid #704025;
+  border-radius: 2px;
+  background: #e7b552;
+  box-shadow: inset 0 0 0 1px #ffdf87, 1px 1px 0 rgba(53, 34, 20, .45);
+}
+
+.difficulty-slider:focus-visible {
+  outline: 2px solid #426b43;
+  outline-offset: 3px;
+}
+
+.difficulty-markers {
+  display: flex;
+  justify-content: space-between;
+  gap: 3px;
+  margin-top: clamp(2px, .35vw, 5px);
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(8px, .9vw, 12px);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.difficulty-easy {
+  color: #426b43;
+}
+
+.difficulty-medium {
+  color: #3b2115;
+}
+
+.difficulty-extreme {
+  color: #8d342b;
+}
+
+.trial-go-button {
+  position: absolute;
+  bottom: clamp(24px, 2.8vw, 38px);
+  left: 50%;
+  display: block;
+  width: 34%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  line-height: 0;
+  transform: translateX(-50%);
+  cursor: pointer;
+  transition: filter .12s ease, transform .12s ease;
+}
+
+.trial-go-button img {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.trial-go-button:hover {
+  filter: brightness(1.08);
+  transform: translate(-50%, -2px);
+}
+
+.trial-go-button:active {
+  filter: brightness(.92);
+  transform: translate(-50%, 1px);
+}
+
+.trial-go-button:focus-visible {
+  outline: 2px solid #704025;
+  outline-offset: 3px;
+}
+
+.trial-go-button:disabled {
+  filter: grayscale(.65) opacity(.55);
+  cursor: not-allowed;
+}
+
+.trial-go-button:disabled:hover,
+.trial-go-button:disabled:active {
+  transform: translateX(-50%);
 }
 
 .main-display-content {
@@ -602,6 +1106,165 @@ body {
 
   .start-trials-button {
     width: clamp(76px, 30%, 120px);
+  }
+
+  .trial-setup-header {
+    top: 5%;
+    width: 86%;
+    gap: 1px;
+    padding-bottom: 2px;
+  }
+
+  .trial-setup-title {
+    gap: 4px;
+    font-size: clamp(12px, 4vw, 16px);
+  }
+
+  .trial-swords-icon {
+    width: clamp(16px, 5vw, 20px);
+    height: clamp(16px, 5vw, 20px);
+  }
+
+  .trial-setup-subtitle {
+    font-size: clamp(8px, 2.2vw, 10px);
+  }
+
+  .trial-configuration {
+    top: 29%;
+    right: 7%;
+    width: 44%;
+  }
+
+  .trial-agent-selection {
+    top: 29%;
+    left: 7%;
+    width: 44%;
+  }
+
+  .agent-selection-heading {
+    gap: 3px;
+    font-size: clamp(9px, 2.8vw, 11px);
+  }
+
+  .agent-selection-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .agent-select-wrap {
+    margin-top: 2px;
+  }
+
+  .agent-select {
+    height: clamp(13px, 3.8vw, 18px);
+    min-height: 0;
+    padding: 0 17px 0 3px;
+    font-size: 8px;
+  }
+
+  .agent-select-wrap::after {
+    right: 6px;
+    width: 5px;
+    height: 5px;
+    border-width: 1px;
+  }
+
+  .agent-empty-state {
+    margin-top: 2px;
+    font-size: 7px;
+  }
+
+  .add-agent-button {
+    min-height: 18px;
+    gap: 2px;
+    margin-top: 3px;
+    padding: 1px 3px;
+    font-size: 8px;
+  }
+
+  .configuration-heading {
+    gap: 3px;
+    font-size: clamp(9px, 2.8vw, 11px);
+  }
+
+  .configuration-leaf {
+    width: 12px;
+    height: 12px;
+  }
+
+  .seed-entry-row {
+    height: clamp(13px, 3.8vw, 18px);
+    gap: 2px;
+    margin-top: 2px;
+  }
+
+  .seed-input {
+    height: 100%;
+    min-height: 0;
+    padding: 0 3px;
+    font-size: 8px;
+  }
+
+  .difficulty-heading-row {
+    gap: 2px;
+    margin-top: 4px;
+  }
+
+  .difficulty-heading {
+    font-size: 9px;
+  }
+
+  .difficulty-icon {
+    width: 12px;
+    height: 12px;
+  }
+
+  .difficulty-number {
+    width: 38px;
+    padding: 0 1px;
+    font-size: 8px;
+  }
+
+  .difficulty-slider {
+    height: 7px;
+    margin-top: 2px;
+  }
+
+  .difficulty-markers {
+    gap: 1px;
+    margin-top: 2px;
+    font-size: 6px;
+  }
+
+  .trial-go-button {
+    bottom: 8%;
+    width: 32%;
+  }
+
+  .agent-form-backdrop {
+    padding: 12px;
+  }
+
+  .agent-form {
+    gap: 8px;
+    padding: 14px;
+  }
+
+  .agent-form h2 {
+    font-size: 20px;
+  }
+
+  .agent-form-icon {
+    width: 27px;
+    height: 27px;
+  }
+
+  .agent-form label {
+    font-size: 13px;
+  }
+
+  .agent-form input {
+    min-height: 32px;
   }
 }
 
