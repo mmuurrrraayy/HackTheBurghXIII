@@ -224,7 +224,110 @@ body {
 
 .main-display-content {
   position: absolute;
-  inset: 12% 8%;
+  inset: 0;
+  pointer-events: none;
+}
+
+.trials-content {
+  position: absolute;
+  top: 18%;
+  left: 7%;
+  width: 49%;
+  height: 66%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  min-height: 0;
+  pointer-events: auto;
+  text-align: left;
+}
+
+.trials-heading {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, .8vw, 11px);
+  min-height: 0;
+  margin: 0;
+  color: #563923;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(18px, 2vw, 29px);
+  font-weight: 400;
+  letter-spacing: clamp(1px, .16vw, 2px);
+  line-height: 1;
+  text-shadow: 0 1px #fff0c8;
+}
+
+.trials-leaf {
+  display: block;
+  width: clamp(20px, 2.3vw, 32px);
+  height: clamp(20px, 2.3vw, 32px);
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.entrance-artwork {
+  position: relative;
+  display: flex;
+  flex: 0 1 78%;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 5px;
+}
+
+.entrance-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 58% 60%;
+  transform: translate(1.5%, -2%) scale(1.03);
+  transform-origin: center;
+  border-radius: inherit;
+  image-rendering: pixelated;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.start-trials-button {
+  position: absolute;
+  bottom: clamp(8px, 1vw, 16px);
+  left: clamp(8px, 1vw, 16px);
+  width: clamp(96px, 30%, 180px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  line-height: 0;
+  cursor: pointer;
+  transition: transform .12s ease, filter .12s ease;
+}
+
+.start-trials-button img {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.start-trials-button:hover {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+}
+
+.start-trials-button:active {
+  filter: brightness(.92);
+  transform: translateY(1px);
+}
+
+.start-trials-button:focus-visible {
+  outline: 2px solid #704025;
+  outline-offset: 3px;
 }
 
 @media (max-width: 700px) {
@@ -256,6 +359,23 @@ body {
   .main-display-panel {
     width: min(78vw, 130vh);
     margin: clamp(16px, 3vh, 26px) 0 24px auto;
+  }
+
+  .trials-content {
+    gap: 0;
+  }
+
+  .trials-heading {
+    min-height: 0;
+  }
+
+  .trials-leaf {
+    width: 19px;
+    height: 19px;
+  }
+
+  .start-trials-button {
+    width: clamp(76px, 30%, 120px);
   }
 }
 

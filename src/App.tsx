@@ -3,11 +3,18 @@ import TitleBoard from './assets/TitleBoard.png';
 import NavBarArtwork from './assets/NavBar.png';
 import ProfileArtwork from './assets/profile.png';
 import ParchmentDisplay from './assets/ParchmentDisplay.png';
+import TrialsLeaf from './assets/leaf.png';
+import LabyrinthEntrance from './assets/LabyrinthEntrance.png';
+import StartTrials from './assets/StartTrials.png';
 
 const navigationItems = ['Home', 'Trials', 'Agents', 'Archives'];
 
 function App() {
   const [currentPage, setCurrentPage] = useState('Home');
+
+  function startTrials() {
+    setCurrentPage('Trials');
+  }
 
   return (
     <main className={`starter${currentPage !== 'Home' ? ' stone-page' : ''}`}>
@@ -46,7 +53,29 @@ function App() {
       {currentPage === 'Home' && (
         <section aria-label="Main display panel" className="main-display-panel">
           <img alt="" className="main-display-artwork" src={ParchmentDisplay} />
-          <div className="main-display-content" />
+          <div className="main-display-content">
+            <section aria-labelledby="trials-heading" className="trials-content">
+              <h2 className="trials-heading" id="trials-heading">
+                <img alt="" className="trials-leaf" src={TrialsLeaf} />
+                <span>Trials</span>
+              </h2>
+              <div className="entrance-artwork">
+                <img
+                  alt="A torch-lit stone entrance into the labyrinth"
+                  className="entrance-image"
+                  src={LabyrinthEntrance}
+                />
+                <button
+                  aria-label="Start Trials"
+                  className="start-trials-button"
+                  onClick={startTrials}
+                  type="button"
+                >
+                  <img alt="" src={StartTrials} />
+                </button>
+              </div>
+            </section>
+          </div>
         </section>
       )}
     </main>
