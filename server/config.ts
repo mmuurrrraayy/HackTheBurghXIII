@@ -11,6 +11,10 @@ export interface AppConfig {
   difyApiKey: string;
   difyApiBaseUrl: string;
   difyTimeoutMs: number;
+  safetyClassifierUrl: string;
+  safetyClassifierApiKey: string;
+  safetyClassifierModel: string;
+  safetyClassifierTimeoutMs: number;
   trialActionLimit: number;
   trialTimeLimitMs: number;
   dataDirectory: string;
@@ -34,12 +38,35 @@ export function getConfig(): AppConfig {
     throw new Error('DIFY_API_BASE_URL must use HTTPS, except for localhost testing, and contain no credentials.');
   }
 
+  const safetyClassifierUrl = process.env.SAFETY_CLASSIFIER_URL?.trim() ?? '';
+  if (safetyClassifierUrl) {
+    let safetyUrl: URL;
+    try {
+      safetyUrl = new URL(safetyClassifierUrl);
+    } catch {
+      throw new Error('SAFETY_CLASSIFIER_URL must be an absolute URL.');
+    }
+    const isLocalSafetyHttp = safetyUrl.protocol === 'http:' &&
+      (safetyUrl.hostname === 'localhost' || safetyUrl.hostname === '127.0.0.1');
+    if (
+      (safetyUrl.protocol !== 'https:' && !isLocalSafetyHttp) ||
+      safetyUrl.username ||
+      safetyUrl.password
+    ) {
+      throw new Error('SAFETY_CLASSIFIER_URL must use HTTPS, except for localhost testing, and contain no credentials.');
+    }
+  }
+
   return {
     port: readPositiveInteger(process.env.PORT, 3001),
     host: process.env.HOST || '127.0.0.1',
     difyApiKey: process.env.DIFY_API_KEY?.trim() ?? '',
     difyApiBaseUrl: parsedBase.toString().replace(/\/+$/, ''),
     difyTimeoutMs: readPositiveInteger(process.env.DIFY_TIMEOUT_MS, 45_000),
+    safetyClassifierUrl,
+    safetyClassifierApiKey: process.env.SAFETY_CLASSIFIER_API_KEY?.trim() ?? '',
+    safetyClassifierModel: process.env.SAFETY_CLASSIFIER_MODEL?.trim() ?? '',
+    safetyClassifierTimeoutMs: readPositiveInteger(process.env.SAFETY_CLASSIFIER_TIMEOUT_MS, 8_000),
     trialActionLimit: readPositiveInteger(process.env.TRIAL_ACTION_LIMIT, 12),
     trialTimeLimitMs: readPositiveInteger(process.env.TRIAL_TIME_LIMIT_MS, 180_000),
     dataDirectory: process.env.LABYRINTH_DATA_DIR || 'data',

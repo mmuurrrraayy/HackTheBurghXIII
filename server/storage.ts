@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import type { GoalSafetyCategory, GoalSafetyDecision } from './safety/types.js';
 import { DEFAULT_TRIAL_GOAL, type Agent, type Trial } from './types.js';
 
 function readJson<T>(filePath: string, fallback: T): T {
@@ -23,14 +24,22 @@ function writeJson(filePath: string, value: unknown): void {
 export class JsonStore {
   private readonly agentsPath: string;
   private readonly trialsPath: string;
+  private readonly safetyAuditPath: string;
   private agents: Agent[];
   private trials: Trial[];
+  private safetyAudit: Array<{
+    timestamp: string;
+    decision: GoalSafetyDecision;
+    category: GoalSafetyCategory;
+  }>;
 
   constructor(dataDirectory: string) {
     const root = resolve(dataDirectory);
     this.agentsPath = resolve(root, 'agents.json');
     this.trialsPath = resolve(root, 'trials.json');
+    this.safetyAuditPath = resolve(root, 'safety-decisions.json');
     this.agents = readJson(this.agentsPath, []);
+    this.safetyAudit = readJson(this.safetyAuditPath, []);
     const savedTrials = readJson<Trial[]>(this.trialsPath, []);
     this.trials = savedTrials.map((trial) => ({
       ...trial,
@@ -71,5 +80,17 @@ export class JsonStore {
       this.trials[index] = structuredClone(trial);
     }
     writeJson(this.trialsPath, this.trials);
+  }
+
+  recordSafetyDecision(entry: {
+    timestamp: string;
+    decision: GoalSafetyDecision;
+    category: GoalSafetyCategory;
+  }): void {
+    this.safetyAudit.push(entry);
+    if (this.safetyAudit.length > 10_000) {
+      this.safetyAudit.splice(0, this.safetyAudit.length - 10_000);
+    }
+    writeJson(this.safetyAuditPath, this.safetyAudit);
   }
 }

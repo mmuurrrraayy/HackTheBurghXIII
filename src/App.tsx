@@ -33,6 +33,12 @@ type TrialSummary = {
   };
 };
 
+type GoalSafetyFeedback = {
+  decision: 'block' | 'review' | 'allow';
+  reason: string;
+  category?: string;
+};
+
 function App() {
   const [currentPage, setCurrentPage] = useState('Home');
   const [goal, setGoal] = useState('Find the refund policy without purchasing anything.');
@@ -48,6 +54,7 @@ function App() {
   const [activeTrialId, setActiveTrialId] = useState('');
   const [isTrialRunning, setIsTrialRunning] = useState(false);
   const [trialMessage, setTrialMessage] = useState('');
+  const [goalSafetyFeedback, setGoalSafetyFeedback] = useState<GoalSafetyFeedback | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,11 +182,12 @@ function App() {
   }
 
   async function beginTrial() {
-    if (!selectedAgentId || isTrialRunning) {
+    if (!selectedAgentId || !goal.trim() || isTrialRunning) {
       return;
     }
 
     setTrialMessage('');
+    setGoalSafetyFeedback(null);
     setActiveTrialId('');
     setIsTrialRunning(true);
     try {
@@ -190,9 +198,17 @@ function App() {
       });
       const body = await response.json() as {
         trial?: { id: string };
-        error?: { message?: string };
+        error?: {
+          message?: string;
+          safety?: GoalSafetyFeedback;
+        };
       };
       if (!response.ok || !body.trial) {
+        if (body.error?.safety && body.error.safety.decision !== 'allow') {
+          setGoalSafetyFeedback(body.error.safety);
+          setIsTrialRunning(false);
+          return;
+        }
         throw new Error(body.error?.message || 'The trial could not be started.');
       }
       setActiveTrialId(body.trial.id);
@@ -380,7 +396,11 @@ function App() {
                   className="goal-input"
                   maxLength={300}
                   minLength={5}
-                  onChange={(event) => setGoal(event.currentTarget.value)}
+                  onChange={(event) => {
+                    setGoal(event.currentTarget.value);
+                    setGoalSafetyFeedback(null);
+                    setTrialMessage('');
+                  }}
                   placeholder="What should your agent accomplish?"
                   required
                   rows={4}
@@ -441,6 +461,23 @@ function App() {
             </button>
             {trialMessage && (
               <p aria-live="polite" className="trial-feedback" role="status">{trialMessage}</p>
+            )}
+            {goalSafetyFeedback && (
+              <aside aria-live="assertive" className={`trial-safety-notice is-${goalSafetyFeedback.decision}`} role="alert">
+                <h2>
+                  {goalSafetyFeedback.decision === 'block'
+                    ? 'Trial Cannot Begin'
+                    : goalSafetyFeedback.category === 'safety_service_unavailable'
+                      ? 'Safety Check Unavailable'
+                      : 'Goal Needs Review'}
+                </h2>
+                <p>{goalSafetyFeedback.reason}</p>
+                <p>
+                  {goalSafetyFeedback.category === 'safety_service_unavailable'
+                    ? 'No trial was started. Please try again later.'
+                    : 'Please revise your goal and try again.'}
+                </p>
+              </aside>
             )}
         </section>
       )}

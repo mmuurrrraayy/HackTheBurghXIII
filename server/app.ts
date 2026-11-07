@@ -4,6 +4,11 @@ import { resolve } from 'node:path';
 import { DifyAdapter } from './adapters/dify.js';
 import type { AppConfig } from './config.js';
 import { HttpError } from './errors.js';
+import {
+  GoalSafetyService,
+  OpenAiCompatibleGoalSafetyClassifier,
+} from './safety/goal-safety-service.js';
+import type { GoalSafetyCategory, GoalSafetyDecision } from './safety/types.js';
 import { JsonStore } from './storage.js';
 import { TrialRunner } from './trials/runner.js';
 import type { Agent, Trial, TrialSummary } from './types.js';
@@ -13,6 +18,7 @@ export interface ServerDependencies {
   store: JsonStore;
   adapterFactory?: () => DifyAdapter;
   agentRunnerFactory?: (store: JsonStore) => TrialRunner;
+  goalSafetyService?: GoalSafetyService;
   serveFrontend?: boolean;
 }
 
@@ -23,6 +29,23 @@ export function createApp(dependencies: ServerDependencies) {
     baseUrl: config.difyApiBaseUrl,
     timeoutMs: config.difyTimeoutMs,
   }));
+  const goalSafetyService = dependencies.goalSafetyService ?? new GoalSafetyService({
+    async classify(goal) {
+      if (!config.safetyClassifierUrl || !config.safetyClassifierApiKey || !config.safetyClassifierModel) {
+        throw new HttpError(
+          503,
+          'Goal safety validation is not configured. Please contact the application administrator.',
+          'GOAL_SAFETY_UNAVAILABLE',
+        );
+      }
+      return new OpenAiCompatibleGoalSafetyClassifier({
+        endpoint: config.safetyClassifierUrl,
+        apiKey: config.safetyClassifierApiKey,
+        model: config.safetyClassifierModel,
+        timeoutMs: config.safetyClassifierTimeoutMs,
+      }).classify(goal);
+    },
+  });
   const runner = dependencies.agentRunnerFactory?.(store) ?? new TrialRunner(
     store,
     config,
@@ -114,7 +137,7 @@ export function createApp(dependencies: ServerDependencies) {
     });
   });
 
-  app.post('/api/trials', (request, response) => {
+  app.post('/api/trials', async (request, response) => {
     const body = request.body as unknown;
     if (!isRecord(body)) throw new HttpError(400, 'A JSON request body is required.', 'INVALID_TRIAL_REQUEST');
     if (typeof body.agentId !== 'string' || !body.agentId) {
@@ -126,6 +149,66 @@ export function createApp(dependencies: ServerDependencies) {
     if (typeof body.difficulty !== 'number' || !Number.isInteger(body.difficulty) || body.difficulty < 0 || body.difficulty > 100) {
       throw new HttpError(400, 'Difficulty must be a whole number from 0 to 100.', 'INVALID_DIFFICULTY');
     }
+    let safety: { decision: GoalSafetyDecision; reason: string; category: GoalSafetyCategory };
+    try {
+      safety = await goalSafetyService.evaluate(body.goal.trim());
+    } catch (error) {
+      if (!(error instanceof HttpError) || !error.code.startsWith('GOAL_SAFETY_')) throw error;
+      const unavailableSafety = {
+        decision: 'review' as const,
+        reason: 'Goal safety validation is unavailable. Please try again later.',
+        category: 'safety_service_unavailable' as const,
+      };
+      try {
+        store.recordSafetyDecision({
+          timestamp: new Date().toISOString(),
+          decision: unavailableSafety.decision,
+          category: unavailableSafety.category,
+        });
+      } catch {
+        throw new HttpError(503, 'Goal safety validation is unavailable. Please try again later.', 'GOAL_SAFETY_AUDIT_FAILED');
+      }
+      response.status(503).json({
+        error: {
+          code: error.code,
+          message: unavailableSafety.reason,
+          safety: unavailableSafety,
+        },
+      });
+      return;
+    }
+
+    try {
+      store.recordSafetyDecision({
+        timestamp: new Date().toISOString(),
+        decision: safety.decision,
+        category: safety.category,
+      });
+    } catch {
+      throw new HttpError(503, 'Goal safety validation is unavailable. Please try again later.', 'GOAL_SAFETY_AUDIT_FAILED');
+    }
+
+    if (safety.decision === 'block') {
+      response.status(403).json({
+        error: {
+          code: 'GOAL_SAFETY_BLOCKED',
+          message: 'This goal may involve unsafe or unauthorised activity. Please enter a legitimate website-navigation task.',
+          safety,
+        },
+      });
+      return;
+    }
+    if (safety.decision === 'review') {
+      response.status(422).json({
+        error: {
+          code: 'GOAL_SAFETY_REVIEW',
+          message: safety.reason,
+          safety,
+        },
+      });
+      return;
+    }
+
     if (runner.getActiveCount() >= 3) {
       throw new HttpError(429, 'The server is already running the maximum number of trials.', 'TRIAL_CAPACITY_REACHED');
     }

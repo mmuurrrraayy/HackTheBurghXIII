@@ -784,6 +784,42 @@ body {
   text-overflow: ellipsis;
 }
 
+.trial-safety-notice {
+  position: absolute;
+  z-index: 4;
+  right: 12%;
+  bottom: clamp(58px, 7vw, 88px);
+  left: 12%;
+  padding: clamp(6px, .8vw, 11px) clamp(9px, 1.2vw, 16px);
+  border: 2px solid #704025;
+  border-radius: 5px;
+  background: #f8e3b5;
+  box-shadow: inset 0 0 0 1px #dca35c, 0 3px 8px rgba(20, 14, 9, .3);
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  text-align: center;
+}
+
+.trial-safety-notice.is-block {
+  border-color: #8d342b;
+  box-shadow: inset 0 0 0 1px #d89474, 0 3px 8px rgba(20, 14, 9, .3);
+}
+
+.trial-safety-notice h2 {
+  margin: 0 0 3px;
+  font-size: clamp(12px, 1.35vw, 18px);
+}
+
+.trial-safety-notice p {
+  margin: 0;
+  font-size: clamp(9px, 1vw, 13px);
+  line-height: 1.25;
+}
+
+.trial-safety-notice p + p {
+  margin-top: 2px;
+}
+
 .agents-page-content {
   position: absolute;
   inset: 14% 12%;

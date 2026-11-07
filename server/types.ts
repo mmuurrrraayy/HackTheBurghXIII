@@ -33,7 +33,7 @@ export type DefenderAction =
 
 export interface TrialEvent {
   id: string;
-  type: 'trial_started' | 'observation' | 'defender_action' | 'challenge' | 'evaluation' | 'error';
+  type: 'trial_started' | 'observation' | 'defender_action' | 'challenge' | 'evaluation' | 'error' | 'safety_decision';
   timestamp: string;
   detail: Record<string, unknown>;
 }

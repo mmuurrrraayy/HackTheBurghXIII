@@ -17,6 +17,21 @@ The project contains a React + TypeScript frontend (Vite) and a small Express + 
 
 The app's task protocol is supplied in each Dify query. Page text is untrusted. Do not configure tools that can access external websites, private resources, or perform purchases; this integration only validates and applies a small allow-listed action set to the local scenario.
 
+## Configure goal safety validation
+
+Trial starts fail closed unless a safety classifier is configured for goals that are not conclusively handled by the deterministic Labyrinth policy. Configure a separate OpenAI-compatible chat-completions service in `.env`:
+
+```env
+SAFETY_CLASSIFIER_URL=https://your-classifier.example/v1/chat/completions
+SAFETY_CLASSIFIER_API_KEY=your-server-side-classifier-key
+SAFETY_CLASSIFIER_MODEL=your-safety-model
+SAFETY_CLASSIFIER_TIMEOUT_MS=8000
+```
+
+Use an HTTPS endpoint and a dedicated safety-classification model/service, separate from the defender and any trainer. The service must return OpenAI-compatible `choices[0].message.content` containing only a JSON object with `decision`, `reason`, and `category`. The backend validates every field and rejects invalid output. Do not use the Dify defender app as the safety classifier. A clearly authorized security simulation explicitly confined to Labyrinth may be approved by deterministic policy; clearly malicious requests are blocked before classifier invocation. Ambiguous requests require the configured classifier and are held for user revision when it returns `review`.
+
+The `POST /api/trials` handler always runs safety validation before creating trial state or invoking the defender. It records only the decision, category, and timestamp; submitted goal text is not copied into the safety audit file. If the classifier is missing, times out, is unavailable, or returns invalid data, the API returns a safety error and does not start a trial. The built-in refund-policy goal and clearly authorized Labyrinth-only security simulations are handled by deterministic policy.
+
 ## Start the application
 
 Install dependencies:
