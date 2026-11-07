@@ -1,7 +1,7 @@
+import codecs
 import asyncio
 import json
 import re
-import codecs
 from dataclasses import dataclass
 from typing import Any
 

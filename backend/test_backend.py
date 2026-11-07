@@ -2,7 +2,6 @@ import asyncio
 import json
 import tempfile
 import unittest
-from pathlib import Path
 
 import httpx
 
@@ -384,6 +383,15 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.post(f"/api/agents/{agent['id']}/test")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["usable"])
+
+    async def test_request_body_size_is_limited(self):
+        response = await self.client.post(
+            "/api/trials",
+            content=b"x" * (32 * 1024 + 1),
+            headers={"content-type": "application/json"},
+        )
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(response.json()["error"]["code"], "REQUEST_TOO_LARGE")
 
 
 if __name__ == "__main__":

@@ -1,9 +1,9 @@
+import json
 import logging
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
-
-from datetime import datetime, timezone
 
 from fastapi import Body, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -58,7 +58,7 @@ class RequestSizeLimitMiddleware:
         async def replay_receive():
             nonlocal sent
             if sent:
-                return {"type": "http.request", "body": b"", "more_body": False}
+                return {"type": "http.disconnect"}
             sent = True
             return {"type": "http.request", "body": body, "more_body": False}
 
