@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:backend": "python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 3001",
-    "start:backend": "python -m uvicorn backend.main:app --host 127.0.0.1 --port 3001",
+    "dev:backend": "python -m backend.dev",
+    "start:backend": "python -m backend.main",
     "test:backend": "python -m unittest backend.test_backend",
     "build": "tsc -b && vite build",
     "preview": "vite preview",

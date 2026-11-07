@@ -20,6 +20,63 @@ from .trials import AgentClient, TrialRunner, to_summary
 logger = logging.getLogger("labyrinth")
 
 
+class RequestSizeLimitMiddleware:
+    def __init__(self, app, maximum_bytes: int):
+        self.app = app
+        self.maximum_bytes = maximum_bytes
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        content_length = next(
+            (value.decode("latin-1") for name, value in scope.get("headers", []) if name.lower() == b"content-length"),
+            None,
+        )
+        try:
+            if content_length is not None and int(content_length) > self.maximum_bytes:
+                await self._too_large(send)
+                return
+        except ValueError:
+            await self._too_large(send)
+            return
+
+        chunks = bytearray()
+        more_body = True
+        while more_body:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                return
+            chunks.extend(message.get("body", b""))
+            if len(chunks) > self.maximum_bytes:
+                await self._too_large(send)
+                return
+            more_body = message.get("more_body", False)
+        body = bytes(chunks)
+        sent = False
+
+        async def replay_receive():
+            nonlocal sent
+            if sent:
+                return {"type": "http.request", "body": b"", "more_body": False}
+            sent = True
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        await self.app(scope, replay_receive, send)
+
+    @staticmethod
+    async def _too_large(send):
+        body = json.dumps({
+            "error": {"code": "REQUEST_TOO_LARGE", "message": "Request body exceeds the allowed size."}
+        }).encode("utf-8")
+        await send({
+            "type": "http.response.start",
+            "status": 413,
+            "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode("ascii"))],
+        })
+        await send({"type": "http.response.body", "body": body})
+
+
 class UnconfiguredClassifier:
     async def classify(self, _goal: str) -> SafetyResult:
         raise AppError(
@@ -39,6 +96,7 @@ def create_app(
     serve_frontend: bool = False,
 ) -> FastAPI:
     app = FastAPI(title="Labyrinth Backend", docs_url=None, redoc_url=None)
+    app.add_middleware(RequestSizeLimitMiddleware, maximum_bytes=32 * 1024)
     adapter_factory = dify_factory or (
         lambda: DifyAdapter(DifyConfig(config.dify_api_key, config.dify_api_base_url, config.dify_timeout_ms))
     )

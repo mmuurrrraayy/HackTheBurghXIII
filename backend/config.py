@@ -48,7 +48,7 @@ class AppConfig:
     def from_env(cls) -> "AppConfig":
         return cls(
             port=_positive_int("PORT", 3001),
-            host=os.getenv("HOST", "127.0.0.1"),
+            host=os.getenv("HOST") or "127.0.0.1",
             dify_api_key=os.getenv("DIFY_API_KEY", "").strip(),
             dify_api_base_url=_validated_url(
                 "DIFY_API_BASE_URL",
@@ -64,5 +64,5 @@ class AppConfig:
             safety_classifier_timeout_ms=_positive_int("SAFETY_CLASSIFIER_TIMEOUT_MS", 8_000),
             trial_action_limit=_positive_int("TRIAL_ACTION_LIMIT", 12),
             trial_time_limit_ms=_positive_int("TRIAL_TIME_LIMIT_MS", 180_000),
-            data_directory=os.getenv("LABYRINTH_DATA_DIR", "data"),
+            data_directory=os.getenv("LABYRINTH_DATA_DIR") or "data",
         )

@@ -1,5 +1,7 @@
 import asyncio
 import json
+import re
+import codecs
 from dataclasses import dataclass
 from typing import Any
 
@@ -97,18 +99,26 @@ class DifyAdapter:
         got_end_event = False
         buffer = ""
         bytes_read = 0
+        decoder = codecs.getincrementaldecoder("utf-8")("replace")
 
         async for chunk in response.aiter_bytes():
             bytes_read += len(chunk)
             if bytes_read > 64 * 1024:
                 raise AppError(502, "Dify response exceeded the allowed size.", "DIFY_RESPONSE_TOO_LARGE")
-            buffer += chunk.decode("utf-8", errors="replace")
-            blocks = __import__("re").split(r"\r?\n\r?\n", buffer)
+            buffer += decoder.decode(chunk)
+            blocks = re.split(r"\r?\n\r?\n", buffer)
             buffer = blocks.pop()
             for block in blocks:
                 answer, conversation_id, got_end_event = DifyAdapter._process_event(
                     block, answer, conversation_id, got_end_event
                 )
+        buffer += decoder.decode(b"", final=True)
+        blocks = re.split(r"\r?\n\r?\n", buffer)
+        buffer = blocks.pop()
+        for block in blocks:
+            answer, conversation_id, got_end_event = DifyAdapter._process_event(
+                block, answer, conversation_id, got_end_event
+            )
         if buffer.strip():
             answer, conversation_id, got_end_event = DifyAdapter._process_event(
                 buffer, answer, conversation_id, got_end_event

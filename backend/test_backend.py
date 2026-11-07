@@ -354,6 +354,37 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         finally:
             await client.aclose()
 
+    async def test_unavailable_safety_service_fails_closed_at_api(self):
+        class Offline:
+            async def classify(self, _goal):
+                raise AppError(503, "offline", "GOAL_SAFETY_UNAVAILABLE")
+
+        app = create_app(
+            self.config,
+            self.store,
+            safety_classifier=Offline(),
+            dify_factory=FakeDify,
+            agent_client_factory=lambda _agent_id: self.agent,
+        )
+        client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
+        try:
+            agent = await self.register_agent()
+            response = await client.post("/api/trials", json={
+                "agentId": agent["id"],
+                "goal": "Investigate account access methods.",
+                "difficulty": 50,
+            })
+            self.assertEqual(response.status_code, 503)
+            self.assertEqual(self.store.list_trials(), [])
+        finally:
+            await client.aclose()
+
+    async def test_agent_connection_test_returns_usable_response(self):
+        agent = await self.register_agent()
+        response = await self.client.post(f"/api/agents/{agent['id']}/test")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["usable"])
+
 
 if __name__ == "__main__":
     unittest.main()
