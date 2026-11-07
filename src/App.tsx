@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import TitleBoard from './assets/TitleBoard.png';
 import NavBarArtwork from './assets/NavBar.png';
 import ProfileArtwork from './assets/profile.png';
@@ -11,7 +11,6 @@ import ArchiveArtwork from './assets/archive.png';
 import BookIcon from './assets/book.jpg';
 import AgentIconRow from './assets/Pixel-Art AI Icon Row.png';
 import CrossedSwords from './assets/swords.png';
-import RandomButtonArtwork from './assets/random.png';
 import GoButtonArtwork from './assets/Go.png';
 import FireIcon from './assets/fire.png';
 import AgentIcon from './assets/agent.png';
@@ -21,61 +20,152 @@ const navigationItems = ['Home', 'Trials', 'Agents', 'Archives'];
 type Agent = {
   id: string;
   name: string;
+  provider: 'dify';
+};
+
+type TrialSummary = {
+  id: string;
+  status: 'running' | 'completed' | 'failed';
+  actionCount: number;
+  evaluation?: {
+    outcome: 'success' | 'failure';
+    failure_reason: string | null;
+  };
 };
 
 function App() {
   const [currentPage, setCurrentPage] = useState('Home');
-  const [seed, setSeed] = useState('LAB-48291');
+  const [goal, setGoal] = useState('Find the refund policy without purchasing anything.');
   const [difficulty, setDifficulty] = useState(50);
-  const [agents] = useState<Agent[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(true);
+  const [agentsError, setAgentsError] = useState('');
   const [selectedAgentId, setSelectedAgentId] = useState('');
   const [isAgentFormOpen, setIsAgentFormOpen] = useState(false);
   const [agentName, setAgentName] = useState('');
-  const [agentEndpoint, setAgentEndpoint] = useState('');
   const [agentConnectionError, setAgentConnectionError] = useState('');
+  const [isAgentConnecting, setIsAgentConnecting] = useState(false);
+  const [activeTrialId, setActiveTrialId] = useState('');
+  const [isTrialRunning, setIsTrialRunning] = useState(false);
+  const [trialMessage, setTrialMessage] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadAgents() {
+      try {
+        const response = await fetch('/api/agents');
+        const body = await response.json() as { agents?: Agent[]; error?: { message?: string } };
+        if (!response.ok) throw new Error(body.error?.message || 'Could not load agents.');
+        if (!cancelled) {
+          setAgents(body.agents ?? []);
+          setAgentsError('');
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setAgentsError(error instanceof Error ? error.message : 'Could not connect to the Labyrinth backend.');
+        }
+      } finally {
+        if (!cancelled) setAgentsLoading(false);
+      }
+    }
+    void loadAgents();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeTrialId) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    async function pollTrial() {
+      try {
+        const response = await fetch(`/api/trials/${encodeURIComponent(activeTrialId)}`);
+        const body = await response.json() as { trial?: TrialSummary; error?: { message?: string } };
+        if (!response.ok || !body.trial) throw new Error(body.error?.message || 'Could not read trial status.');
+        if (cancelled) return;
+        if (body.trial.status === 'running') {
+          setTrialMessage(`Trial running · ${body.trial.actionCount} actions taken`);
+          timer = setTimeout(() => void pollTrial(), 1200);
+          return;
+        }
+
+        setIsTrialRunning(false);
+        if (body.trial.status === 'completed') {
+          setTrialMessage(
+            body.trial.evaluation?.outcome === 'success'
+              ? `Trial complete · ${body.trial.actionCount} actions`
+              : body.trial.evaluation?.failure_reason || 'Trial ended without completing the task.',
+          );
+        } else {
+          const eventsResponse = await fetch(`/api/trials/${encodeURIComponent(activeTrialId)}/events`);
+          const eventsBody = await eventsResponse.json() as {
+            events?: Array<{ type: string; detail?: { message?: string } }>;
+          };
+          const errorMessage = [...(eventsBody.events ?? [])]
+            .reverse()
+            .find((event) => event.type === 'error')?.detail?.message;
+          setTrialMessage(errorMessage || body.trial.evaluation?.failure_reason || 'The trial did not complete.');
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setIsTrialRunning(false);
+          setTrialMessage(error instanceof Error ? error.message : 'Could not read trial status.');
+        }
+      }
+    }
+
+    void pollTrial();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [activeTrialId]);
 
   function startTrials() {
     setCurrentPage('Trials');
   }
 
-  function randomizeSeed() {
-    let nextSeed: string;
-    do {
-      nextSeed = `LAB-${Math.floor(10000 + Math.random() * 90000)}`;
-    } while (nextSeed === seed);
-    setSeed(nextSeed);
-  }
-
-  function connectCustomAgent(event: FormEvent<HTMLFormElement>) {
+  async function connectCustomAgent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!agentName.trim()) {
-      setAgentConnectionError('Enter a name for your agent.');
+    const name = agentName.trim();
+    if (name.length < 2 || name.length > 60) {
+      setAgentConnectionError('Agent name must be between 2 and 60 characters.');
       return;
     }
 
-    let endpoint: URL;
     try {
-      endpoint = new URL(agentEndpoint.trim());
-    } catch {
-      setAgentConnectionError('Enter a valid HTTPS endpoint URL.');
-      return;
+      setIsAgentConnecting(true);
+      const response = await fetch('/api/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, provider: 'dify' }),
+      });
+      const body = await response.json() as { agent?: Agent; error?: { message?: string } };
+      if (!response.ok || !body.agent) {
+        throw new Error(body.error?.message || 'The agent could not be registered.');
+      }
+      const registeredAgent = body.agent;
+      setAgents((currentAgents) => [...currentAgents, registeredAgent]);
+      setSelectedAgentId(registeredAgent.id);
+      setAgentName('');
+      setAgentConnectionError('');
+      setIsAgentFormOpen(false);
+      setAgentsError('');
+    } catch (error) {
+      setAgentConnectionError(
+        error instanceof Error ? error.message : 'Could not connect to the Labyrinth backend.',
+      );
+    } finally {
+      setIsAgentConnecting(false);
     }
-
-    if (endpoint.protocol !== 'https:' || !endpoint.hostname) {
-      setAgentConnectionError('The agent endpoint must use HTTPS.');
-      return;
-    }
-
-    setAgentConnectionError(
-      'Agent connection is unavailable because this frontend has no backend integration configured. No agent was saved.',
-    );
   }
 
   function closeAgentForm() {
     setIsAgentFormOpen(false);
     setAgentName('');
-    setAgentEndpoint('');
     setAgentConnectionError('');
   }
 
@@ -84,12 +174,33 @@ function App() {
     setIsAgentFormOpen(true);
   }
 
-  function beginTrial() {
-    if (!selectedAgentId) {
+  async function beginTrial() {
+    if (!selectedAgentId || isTrialRunning) {
       return;
     }
 
-    setCurrentPage('Trials');
+    setTrialMessage('');
+    setActiveTrialId('');
+    setIsTrialRunning(true);
+    try {
+      const response = await fetch('/api/trials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: selectedAgentId, goal, difficulty }),
+      });
+      const body = await response.json() as {
+        trial?: { id: string };
+        error?: { message?: string };
+      };
+      if (!response.ok || !body.trial) {
+        throw new Error(body.error?.message || 'The trial could not be started.');
+      }
+      setActiveTrialId(body.trial.id);
+      setTrialMessage('Starting trial…');
+    } catch (error) {
+      setIsTrialRunning(false);
+      setTrialMessage(error instanceof Error ? error.message : 'Could not connect to the Labyrinth backend.');
+    }
   }
 
   return (
@@ -242,7 +353,9 @@ function App() {
                 </select>
                 {agents.length === 0 && (
                   <p className="agent-empty-state">
-                    No connected agents yet. Agent connections require backend support.
+                    {agentsLoading
+                      ? 'Loading agents…'
+                      : agentsError || 'No Dify agents registered yet. Add one to continue.'}
                   </p>
                 )}
               </div>
@@ -252,31 +365,27 @@ function App() {
                 type="button"
               >
                 <span aria-hidden="true" className="add-agent-plus">+</span>
-                <span>Add Custom Agent</span>
+                <span>Add Dify Agent</span>
                 <span aria-hidden="true" className="add-agent-arrow">›</span>
               </button>
             </section>
             <section aria-label="Labyrinth configuration" className="trial-configuration">
-              <h2 className="configuration-heading seed-heading">
+              <h2 className="configuration-heading">
                 <img alt="" className="configuration-leaf" src={TrialsLeaf} />
-                <span>Labyrinth Seed</span>
+                <span>Agent Goal</span>
               </h2>
-              <div className="seed-entry-row">
-                <input
-                  aria-label="Labyrinth seed"
-                  className="seed-input"
-                  onChange={(event) => setSeed(event.currentTarget.value)}
-                  type="text"
-                  value={seed}
+              <div className="goal-entry-row">
+                <textarea
+                  aria-label="Goal for the AI agent"
+                  className="goal-input"
+                  maxLength={300}
+                  minLength={5}
+                  onChange={(event) => setGoal(event.currentTarget.value)}
+                  placeholder="What should your agent accomplish?"
+                  required
+                  rows={4}
+                  value={goal}
                 />
-                <button
-                  aria-label="Generate a random labyrinth seed"
-                  className="random-seed-button"
-                  onClick={randomizeSeed}
-                  type="button"
-                >
-                  <img alt="" src={RandomButtonArtwork} />
-                </button>
               </div>
               <div className="difficulty-heading-row">
                 <h2 className="configuration-heading difficulty-heading">
@@ -324,61 +433,84 @@ function App() {
             <button
               aria-label="Go — Enter the Labyrinth"
               className="trial-go-button"
-              disabled={!selectedAgentId}
+              disabled={!selectedAgentId || !goal.trim() || agentsLoading || isTrialRunning}
               onClick={beginTrial}
               type="button"
             >
               <img alt="" src={GoButtonArtwork} />
             </button>
+            {trialMessage && (
+              <p aria-live="polite" className="trial-feedback" role="status">{trialMessage}</p>
+            )}
+        </section>
+      )}
+      {currentPage === 'Agents' && (
+        <section aria-label="Connected agents" className="trials-page-panel agents-page-panel">
+          <img alt="" className="trials-page-artwork" src={TrialsPageDisplay} />
+          <div className="agents-page-content">
+            <h1 className="agents-page-title">Connected Agents</h1>
+            {agentsLoading ? (
+              <p>Loading registered agents…</p>
+            ) : agentsError ? (
+              <p className="agents-page-error" role="alert">{agentsError}</p>
+            ) : agents.length === 0 ? (
+              <p>No Dify agents are registered yet.</p>
+            ) : (
+              <ul className="agents-page-list">
+                {agents.map((agent) => (
+                  <li key={agent.id}>
+                    <img alt="" src={AgentIcon} />
+                    <span>{agent.name}</span>
+                    <small>Dify · Registered</small>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              className="agents-page-add"
+              onClick={openAgentForm}
+              type="button"
+            >
+              + Connect Dify Agent
+            </button>
+          </div>
         </section>
       )}
       {isAgentFormOpen && (
         <div aria-modal="true" className="agent-form-backdrop" role="dialog">
-          <form aria-labelledby="agent-form-title" className="agent-form" onSubmit={connectCustomAgent}>
+          <form
+            aria-labelledby="agent-form-title"
+            aria-busy={isAgentConnecting}
+            className="agent-form"
+            onSubmit={connectCustomAgent}
+          >
             <header className="agent-form-header">
               <img alt="" className="agent-form-icon" src={AgentIcon} />
-              <h2 id="agent-form-title">Connect Custom Agent</h2>
+              <h2 id="agent-form-title">Connect Dify Agent</h2>
             </header>
-            <p className="agent-form-description">Bring your own AI agent into the labyrinth.</p>
+            <p className="agent-form-description">
+              Register a Dify agent configured securely on the backend.
+            </p>
             <div className="agent-form-field">
               <label htmlFor="custom-agent-name">Agent Name</label>
               <input
                 autoFocus
                 id="custom-agent-name"
-                onChange={(event) => {
-                  setAgentName(event.currentTarget.value);
-                  setAgentConnectionError('');
-                }}
+                onChange={(event) => setAgentName(event.currentTarget.value)}
                 placeholder="My Custom Agent"
                 required
                 type="text"
                 value={agentName}
               />
             </div>
-            <div className="agent-form-field">
-              <label htmlFor="custom-agent-endpoint">Agent API Endpoint</label>
-              <input
-                aria-describedby="agent-endpoint-help"
-                id="custom-agent-endpoint"
-                onChange={(event) => {
-                  setAgentEndpoint(event.currentTarget.value);
-                  setAgentConnectionError('');
-                }}
-                placeholder="https://my-agent.example.com/run"
-                required
-                type="url"
-                value={agentEndpoint}
-              />
-              <p className="agent-endpoint-help" id="agent-endpoint-help">
-                Enter the HTTPS endpoint where your agent receives trial requests.
-              </p>
-            </div>
             {agentConnectionError && (
               <p className="agent-form-error" role="alert">{agentConnectionError}</p>
             )}
             <div className="agent-form-actions">
-              <button onClick={closeAgentForm} type="button">Cancel</button>
-              <button type="submit">Connect Agent</button>
+              <button disabled={isAgentConnecting} onClick={closeAgentForm} type="button">Cancel</button>
+              <button disabled={isAgentConnecting} type="submit">
+                {isAgentConnecting ? 'Connecting…' : 'Connect Agent'}
+              </button>
             </div>
           </form>
         </div>
