@@ -146,12 +146,20 @@ export function createApp(dependencies: ServerDependencies) {
     if (typeof body.goal !== 'string' || body.goal.trim().length < 5 || body.goal.trim().length > 300) {
       throw new HttpError(400, 'Goal must be between 5 and 300 characters.', 'INVALID_GOAL');
     }
+    if (body.prompt !== undefined && (typeof body.prompt !== 'string' || body.prompt.length > 500)) {
+      throw new HttpError(400, 'Agent prompt must be 500 characters or fewer.', 'INVALID_AGENT_PROMPT');
+    }
     if (typeof body.difficulty !== 'number' || !Number.isInteger(body.difficulty) || body.difficulty < 0 || body.difficulty > 100) {
       throw new HttpError(400, 'Difficulty must be a whole number from 0 to 100.', 'INVALID_DIFFICULTY');
     }
+    const goal = body.goal.trim();
+    const agentPrompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+    const safetyInput = agentPrompt
+      ? `${goal}\nAdditional agent prompt: ${agentPrompt}`
+      : goal;
     let safety: { decision: GoalSafetyDecision; reason: string; category: GoalSafetyCategory };
     try {
-      safety = await goalSafetyService.evaluate(body.goal.trim());
+      safety = await goalSafetyService.evaluate(safetyInput);
     } catch (error) {
       if (!(error instanceof HttpError) || !error.code.startsWith('GOAL_SAFETY_')) throw error;
       const unavailableSafety = {
@@ -213,7 +221,12 @@ export function createApp(dependencies: ServerDependencies) {
       throw new HttpError(429, 'The server is already running the maximum number of trials.', 'TRIAL_CAPACITY_REACHED');
     }
     ensureDifyConfigured(config);
-    const trial = runner.start({ agentId: body.agentId, goal: body.goal.trim(), difficulty: body.difficulty });
+    const trial = runner.start({
+      agentId: body.agentId,
+      goal,
+      ...(agentPrompt ? { agentPrompt } : {}),
+      difficulty: body.difficulty,
+    });
     response.status(202).json({ trial: toSummary(trial) });
   });
 

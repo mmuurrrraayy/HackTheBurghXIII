@@ -55,6 +55,7 @@ export interface Trial {
   id: string;
   agentId: string;
   goal: string;
+  agentPrompt?: string;
   difficulty: number;
   status: TrialStatus;
   startedAt: string;

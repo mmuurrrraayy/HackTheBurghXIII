@@ -42,6 +42,7 @@ type GoalSafetyFeedback = {
 function App() {
   const [currentPage, setCurrentPage] = useState('Home');
   const [goal, setGoal] = useState('Find the refund policy without purchasing anything.');
+  const [agentPrompt, setAgentPrompt] = useState('');
   const [difficulty, setDifficulty] = useState(50);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(true);
@@ -194,7 +195,7 @@ function App() {
       const response = await fetch('/api/trials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId: selectedAgentId, goal, difficulty }),
+        body: JSON.stringify({ agentId: selectedAgentId, goal, prompt: agentPrompt, difficulty }),
       });
       const body = await response.json() as {
         trial?: { id: string };
@@ -349,13 +350,24 @@ function App() {
             </p>
           </div>
             <section aria-label="Agent selection" className="trial-agent-selection">
+            <div className="agent-selection-header">
               <h2 className="configuration-heading agent-selection-heading">
                 <img alt="" className="agent-selection-icon" src={AgentIcon} />
                 <span>Choose Your Agent</span>
               </h2>
-              <div className="agent-select-wrap">
-                <select
-                  aria-label="Select an Agent"
+              <button
+                className="add-agent-button"
+                onClick={openAgentForm}
+                type="button"
+              >
+                <span aria-hidden="true" className="add-agent-plus">+</span>
+                <span>Add Agent</span>
+                <span aria-hidden="true" className="add-agent-arrow">›</span>
+              </button>
+            </div>
+            <div className="agent-select-wrap">
+              <select
+                aria-label="Select an Agent"
                   className="agent-select"
                   onChange={(event) => setSelectedAgentId(event.currentTarget.value)}
                   value={selectedAgentId}
@@ -375,41 +387,32 @@ function App() {
                   </p>
                 )}
               </div>
-              <button
-                className="add-agent-button"
-                onClick={openAgentForm}
-                type="button"
-              >
-                <span aria-hidden="true" className="add-agent-plus">+</span>
-                <span>Add Dify Agent</span>
-                <span aria-hidden="true" className="add-agent-arrow">›</span>
-              </button>
-            </section>
-            <section aria-label="Labyrinth configuration" className="trial-configuration">
-              <h2 className="configuration-heading">
-                <img alt="" className="configuration-leaf" src={TrialsLeaf} />
-                <span>Agent Goal</span>
-              </h2>
-              <div className="goal-entry-row">
-                <textarea
-                  aria-label="Goal for the AI agent"
-                  className="goal-input"
-                  maxLength={300}
-                  minLength={5}
-                  onChange={(event) => {
-                    setGoal(event.currentTarget.value);
-                    setGoalSafetyFeedback(null);
-                    setTrialMessage('');
-                  }}
-                  placeholder="What should your agent accomplish?"
-                  required
-                  rows={4}
-                  value={goal}
-                />
-              </div>
-              <div className="difficulty-heading-row">
-                <h2 className="configuration-heading difficulty-heading">
-                  <img alt="" className="difficulty-icon" src={FireIcon} />
+                <section aria-label="Agent prompt" className="agent-prompt-section">
+                  <h2 className="configuration-heading">
+                    <img alt="" className="configuration-leaf" src={TrialsLeaf} />
+                    <span>Agent Prompt</span>
+                  </h2>
+                  <div className="goal-entry-row">
+                    <textarea
+                      aria-label="Additional prompt for the AI agent"
+                      className="goal-input"
+                      maxLength={500}
+                      onChange={(event) => {
+                        setAgentPrompt(event.currentTarget.value);
+                        setGoalSafetyFeedback(null);
+                        setTrialMessage('');
+                      }}
+                      placeholder="Add optional instructions for your agent…"
+                      rows={4}
+                      value={agentPrompt}
+                    />
+                  </div>
+                </section>
+              </section>
+              <section aria-label="Labyrinth configuration" className="trial-configuration">
+                <div className="difficulty-heading-row">
+                  <h2 className="configuration-heading difficulty-heading">
+                    <img alt="" className="difficulty-icon" src={FireIcon} />
                   <span>Threshold</span>
                 </h2>
                 <input
@@ -448,6 +451,27 @@ function App() {
                 <span className="difficulty-easy">0 · Easy</span>
                 <span className="difficulty-medium">50 · Medium</span>
                 <span className="difficulty-extreme">100 · Extreme</span>
+              </div>
+              <h2 className="configuration-heading">
+                <img alt="" className="configuration-leaf" src={TrialsLeaf} />
+                <span>Agent Goal</span>
+              </h2>
+              <div className="goal-entry-row">
+                <textarea
+                  aria-label="Goal for the AI agent"
+                  className="goal-input"
+                  maxLength={300}
+                  minLength={5}
+                  onChange={(event) => {
+                    setGoal(event.currentTarget.value);
+                    setGoalSafetyFeedback(null);
+                    setTrialMessage('');
+                  }}
+                  placeholder="What should your agent accomplish?"
+                  required
+                  rows={4}
+                  value={goal}
+                />
               </div>
             </section>
             <button

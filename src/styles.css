@@ -319,7 +319,15 @@ body {
   text-align: left;
 }
 
+.agent-selection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(4px, .7vw, 9px);
+}
+
 .agent-selection-heading {
+  min-width: 0;
   font-size: clamp(14px, 1.8vw, 22px);
 }
 
@@ -335,6 +343,10 @@ body {
 .agent-select-wrap {
   position: relative;
   margin-top: clamp(5px, .7vw, 10px);
+}
+
+.agent-prompt-section {
+  margin-top: clamp(8px, 1vw, 14px);
 }
 
 .agent-select-wrap::after {
@@ -385,11 +397,12 @@ body {
 .add-agent-button {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 5px;
-  width: 100%;
+  flex: 0 0 auto;
+  width: auto;
   min-height: clamp(28px, 3.2vw, 42px);
-  margin-top: clamp(6px, .75vw, 10px);
+  margin-top: 0;
   padding: 4px clamp(7px, .8vw, 11px);
   border: 1px solid #aa7740;
   border-radius: 4px;
@@ -1233,6 +1246,10 @@ body {
     font-size: clamp(9px, 2.8vw, 11px);
   }
 
+  .agent-selection-header {
+    gap: 3px;
+  }
+
   .agent-selection-icon {
     width: 18px;
     height: 18px;
@@ -1240,6 +1257,10 @@ body {
 
   .agent-select-wrap {
     margin-top: 2px;
+  }
+
+  .agent-prompt-section {
+    margin-top: 5px;
   }
 
   .agent-select {
@@ -1264,7 +1285,6 @@ body {
   .add-agent-button {
     min-height: 18px;
     gap: 2px;
-    margin-top: 3px;
     padding: 1px 3px;
     font-size: 8px;
   }

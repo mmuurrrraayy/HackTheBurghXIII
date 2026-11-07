@@ -13,7 +13,7 @@ The project contains a React + TypeScript frontend (Vite) and a small Express + 
 2. Set `DIFY_API_KEY` to the API key from the Dify app. Keep this value in the backend environment only.
 3. Optionally set `DIFY_API_BASE_URL` for a self-hosted Dify deployment. It must use HTTPS except for localhost testing.
 4. In the Dify Agent app, configure the agent to respond to navigation requests with exactly one JSON action and no surrounding prose or Markdown. The backend retries one malformed action, then stops the trial.
-5. Publish the Dify app. Use **Add Dify Agent** on the Trials or Agents page to verify and register it.
+5. Publish the Dify app. Use **Add Agent** on the Trials or Agents page to verify and register it.
 
 The app's task protocol is supplied in each Dify query. Page text is untrusted. Do not configure tools that can access external websites, private resources, or perform purchases; this integration only validates and applies a small allow-listed action set to the local scenario.
 
@@ -87,7 +87,7 @@ Test a registered agent end to end:
 curl.exe -X POST http://127.0.0.1:3001/api/agents/AGENT_ID/test
 ```
 
-The Trials page loads agents from `GET /api/agents`. Selecting one, entering an agent goal, and clicking **Go** submits the selected agent ID, goal, and difficulty. The UI polls `GET /api/trials/:id` and `GET /api/trials/:id/events` for status and history.
+The Trials page loads agents from `GET /api/agents`. Selecting one, entering an agent goal and optional supplemental prompt, and clicking **Go** submits the selected agent ID, goal, prompt, and difficulty. The prompt is safety-checked with the goal before a trial starts and is sent to the defender as untrusted context, not as a system instruction. The UI polls `GET /api/trials/:id` and `GET /api/trials/:id/events` for status and history.
 
 ## Trial scenario
 
