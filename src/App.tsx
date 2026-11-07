@@ -2,6 +2,7 @@ import { useState } from 'react';
 import TitleBoard from './assets/TitleBoard.png';
 import NavBarArtwork from './assets/NavBar.png';
 import ProfileArtwork from './assets/profile.png';
+import ParchmentDisplay from './assets/ParchmentDisplay.png';
 
 const navigationItems = ['Home', 'Trials', 'Agents', 'Archives'];
 
@@ -42,7 +43,12 @@ function App() {
           <img alt="Profile nameplate with an empty portrait frame" src={ProfileArtwork} />
         </div>
       </header>
-      <span className="starter-status">React + TypeScript project ready</span>
+      {currentPage === 'Home' && (
+        <section aria-label="Main display panel" className="main-display-panel">
+          <img alt="" className="main-display-artwork" src={ParchmentDisplay} />
+          <div className="main-display-content" />
+        </section>
+      )}
     </main>
   );
 }
