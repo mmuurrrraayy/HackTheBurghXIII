@@ -3,12 +3,14 @@ import TitleBoard from './assets/TitleBoard.png';
 import NavBarArtwork from './assets/NavBar.png';
 import ProfileArtwork from './assets/profile.png';
 import ParchmentDisplay from './assets/ParchmentDisplay.png';
+import TrialsPageDisplay from './assets/ParchmentDisplay2.png';
 import TrialsLeaf from './assets/leaf.png';
 import LabyrinthEntrance from './assets/LabyrinthEntrance.png';
 import StartTrials from './assets/StartTrials.png';
 import ArchiveArtwork from './assets/archive.png';
 import BookIcon from './assets/book.jpg';
 import AgentIconRow from './assets/Pixel-Art AI Icon Row.png';
+import CrossedSwords from './assets/swords.png';
 
 const navigationItems = ['Home', 'Trials', 'Agents', 'Archives'];
 
@@ -133,6 +135,20 @@ function App() {
                 </button>
               </div>
             </section>
+          </div>
+        </section>
+      )}
+      {currentPage === 'Trials' && (
+        <section aria-label="Trials panel" className="trials-page-panel">
+          <img alt="" className="trials-page-artwork" src={TrialsPageDisplay} />
+          <div className="trial-setup-header">
+            <h1 className="trial-setup-title">
+              <img alt="" className="trial-swords-icon" src={CrossedSwords} />
+              <span>Prepare Your Trial</span>
+            </h1>
+            <p className="trial-setup-subtitle">
+              Select an agent, configure the labyrinth, and begin the trial.
+            </p>
           </div>
         </section>
       )}
