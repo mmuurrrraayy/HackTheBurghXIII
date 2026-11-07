@@ -1,10 +1,11 @@
 # LABYRINTH — The Agent Trials
 
-The project contains a React + TypeScript frontend (Vite) and a small Express + TypeScript backend. The backend talks to a Dify Agent app using its server-side API key and runs actions only against Labyrinth's generated, in-process garden-shop scenario. Agent-supplied URLs and commands are never opened or executed.
+The project contains a React + TypeScript frontend (Vite) and a Python + FastAPI backend. The backend talks to a Dify Agent app using its server-side API key and runs actions only against Labyrinth's generated, in-process garden-shop scenario. Agent-supplied URLs and commands are never opened or executed.
 
 ## Requirements
 
 - Node.js 20+
+- Python 3.10+
 - A published Dify Agent app and its app API key for live Dify trials
 
 ## Configure Dify
@@ -34,10 +35,27 @@ The `POST /api/trials` handler always runs safety validation before creating tri
 
 ## Start the application
 
-Install dependencies:
+Install frontend and backend dependencies:
 
 ```sh
 npm install
+python -m venv .venv
+```
+
+Activate the virtual environment before installing Python dependencies:
+
+Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+macOS/Linux:
+
+```sh
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
 In one terminal, start the backend:
@@ -52,7 +70,7 @@ In a second terminal, start the Vite frontend:
 npm run dev
 ```
 
-Vite proxies `/api` and `/health` to the backend on port `3001`. The backend binds to `127.0.0.1` by default. Do not expose it publicly without adding appropriate authentication, TLS, and deployment-level protections.
+Run `npm run dev:backend` from the activated Python environment. In a second terminal, activate the same environment and start Vite with `npm run dev`. Vite proxies `/api` and `/health` to the backend on port `3001`. The backend binds to `127.0.0.1` by default. Do not expose it publicly without adding appropriate authentication, TLS, and deployment-level protections.
 
 For a production-style local run, build the frontend and start the backend (which serves `dist`):
 
@@ -102,4 +120,4 @@ npm run test:server
 npm run build
 ```
 
-The server tests use a deterministic fake agent and do not require a Dify API call.
+The Python backend tests use a deterministic fake agent and do not require a Dify API call.

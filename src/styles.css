@@ -351,7 +351,7 @@ body {
 
 .agent-select-wrap::after {
   position: absolute;
-  top: calc(50% - 17px);
+  top: calc(50% + 4px);
   right: clamp(8px, 1vw, 14px);
   width: 8px;
   height: 8px;
@@ -359,7 +359,7 @@ body {
   border-bottom: 2px solid #704025;
   content: '';
   pointer-events: none;
-  transform: translateY(-70%) rotate(45deg);
+  transform: translateY(-50%) rotate(45deg);
 }
 
 .agent-select {
@@ -1271,6 +1271,7 @@ body {
   }
 
   .agent-select-wrap::after {
+    top: calc(50% + 3px);
     right: 6px;
     width: 5px;
     height: 5px;
