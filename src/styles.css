@@ -49,6 +49,10 @@ body {
   background-image: url('./assets/TrialBackground.png');
 }
 
+.starter:not(.stone-page) {
+  background-position: center calc(50% + 12vh);
+}
+
 .home-header {
   position: relative;
   width: 100%;
@@ -189,6 +193,7 @@ body {
 }
 
 .home-profile {
+  grid-column: 3;
   width: 100%;
   max-width: 245px;
   justify-self: end;
@@ -330,6 +335,161 @@ body {
   outline-offset: 3px;
 }
 
+.agents-content,
+.archive-content {
+  position: absolute;
+  left: 62%;
+  width: 31%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  pointer-events: auto;
+  text-align: left;
+}
+
+.agents-content {
+  top: 18%;
+  height: 28%;
+}
+
+.archive-content {
+  top: 55%;
+  height: 30%;
+}
+
+.section-hit-area {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.noticeboard-heading,
+.agents-preview,
+.archive-preview {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.noticeboard-heading {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: clamp(4px, .7vw, 9px);
+  margin: 0;
+  color: #563923;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(12px, 1.8vw, 25px);
+  font-weight: 400;
+  letter-spacing: clamp(.5px, .12vw, 1.5px);
+  line-height: 1;
+  text-shadow: 0 1px #fff0c8;
+}
+
+.noticeboard-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: clamp(14px, 1.8vw, 23px);
+  height: clamp(14px, 1.8vw, 23px);
+  line-height: 1;
+}
+
+.archive-icon {
+  width: clamp(20px, 2.3vw, 30px);
+  height: clamp(20px, 2.3vw, 30px);
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
+.agents-preview {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(2px, .45vw, 7px);
+  min-height: 0;
+}
+
+.agent-icon-row {
+  display: block;
+  flex: 1 1 auto;
+  width: 0;
+  height: 100%;
+  min-width: 0;
+  object-fit: contain;
+  image-rendering: pixelated;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.section-arrow {
+  pointer-events: auto;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: clamp(16px, 2vw, 28px);
+  height: clamp(24px, 3vw, 40px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #704025;
+  font-family: Georgia, serif;
+  font-size: clamp(22px, 3vw, 38px);
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 1px #fff1cf;
+  cursor: pointer;
+  transition: color .14s ease, transform .14s ease;
+}
+
+.section-arrow:hover {
+  color: #a45f2d;
+  transform: translateX(2px);
+}
+
+.section-arrow:focus-visible {
+  outline: 2px solid #704025;
+  outline-offset: 1px;
+}
+
+.archive-preview {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.archive-artwork {
+  display: block;
+  width: 84%;
+  height: 100%;
+  object-fit: contain;
+  transform: translateY(clamp(-16px, -1.2vw, -4px));
+  image-rendering: pixelated;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.archive-preview .section-arrow {
+  pointer-events: auto;
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.archive-preview .section-arrow:hover {
+  transform: translate(2px, -50%);
+}
+
 @media (max-width: 700px) {
   .starter {
     background-attachment: scroll;
@@ -353,6 +513,7 @@ body {
   }
 
   .home-profile {
+    grid-column: 2;
     width: min(100%, 190px);
   }
 
