@@ -39,6 +39,22 @@ type GoalSafetyFeedback = {
   category?: string;
 };
 
+async function readApiResponse<T>(response: Response): Promise<T> {
+  const bodyText = await response.text();
+  if (!bodyText.trim()) {
+    throw new Error(
+      response.status === 502 || response.status === 503
+        ? 'The Labyrinth backend did not respond. Start it with npm run dev:backend and try again.'
+        : `The backend returned an empty response (HTTP ${response.status}).`,
+    );
+  }
+  try {
+    return JSON.parse(bodyText) as T;
+  } catch {
+    throw new Error(`The backend returned an invalid response (HTTP ${response.status}).`);
+  }
+}
+
 function App() {
   const [currentPage, setCurrentPage] = useState('Home');
   const [goal, setGoal] = useState('Find the refund policy without purchasing anything.');
@@ -62,7 +78,7 @@ function App() {
     async function loadAgents() {
       try {
         const response = await fetch('/api/agents');
-        const body = await response.json() as { agents?: Agent[]; error?: { message?: string } };
+        const body = await readApiResponse<{ agents?: Agent[]; error?: { message?: string } }>(response);
         if (!response.ok) throw new Error(body.error?.message || 'Could not load agents.');
         if (!cancelled) {
           setAgents(body.agents ?? []);
@@ -151,7 +167,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, provider: 'dify' }),
       });
-      const body = await response.json() as { agent?: Agent; error?: { message?: string } };
+      const body = await readApiResponse<{ agent?: Agent; error?: { message?: string } }>(response);
       if (!response.ok || !body.agent) {
         throw new Error(body.error?.message || 'The agent could not be registered.');
       }
@@ -197,13 +213,13 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentId: selectedAgentId, goal, prompt: agentPrompt, difficulty }),
       });
-      const body = await response.json() as {
+      const body = await readApiResponse<{
         trial?: { id: string };
         error?: {
           message?: string;
           safety?: GoalSafetyFeedback;
         };
-      };
+      }>(response);
       if (!response.ok || !body.trial) {
         if (body.error?.safety && body.error.safety.decision !== 'allow') {
           setGoalSafetyFeedback(body.error.safety);

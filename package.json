@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:backend": "python -m backend.dev",
-    "start:backend": "python -m backend.main",
-    "test:backend": "python -m unittest backend.test_backend",
+    "dev:backend": "node scripts/run-python.mjs -m backend.dev",
+    "start:backend": "node scripts/run-python.mjs -m backend.main",
+    "test:backend": "node scripts/run-python.mjs -m unittest backend.test_backend",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test:server": "python -m unittest backend.test_backend"
+    "test:server": "node scripts/run-python.mjs -m unittest backend.test_backend"
   },
   "dependencies": {
     "react": "^19.1.0",
