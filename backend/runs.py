@@ -183,6 +183,40 @@ def _now_ms() -> int:
     return int(time.time() * 1000)
 
 
+def build_run(raw_spec: Any, max_duration_ms: int) -> Run:
+    """Validate a villain spec and turn its scored components into a fresh Run."""
+    spec = copy.deepcopy(validate_spec(raw_spec))
+    safe_behaviour = spec.pop("safe_behaviour", None)
+    traps: list[Trap] = []
+    for index, component in enumerate(spec.get("components", [])):
+        instance_id = f"c{index}"
+        component["id"] = instance_id
+        component.setdefault("params", {})
+        trap_type = TRAP_TYPES.get(component["type"])
+        if trap_type is None:
+            continue
+        try:
+            trap = trap_type(instance_id, component["params"])
+        except ValueError as error:
+            raise _invalid(str(error)) from error
+        component["params"] = trap.prepare_params()
+        traps.append(trap)
+    return Run(uuid.uuid4().hex, _now_ms(), max_duration_ms, spec, safe_behaviour, traps)
+
+
+def run_result(run: Run) -> dict[str, Any]:
+    result = run.scored()
+    return {
+        **result,
+        "ended": result["ended"] or run.ended,
+        "end_reason": run.end_reason,
+        "run_id": run.run_id,
+        "event_count": len(run.events),
+        "duplicate_exposures": run.duplicate_exposures(),
+        "safe_behaviour": run.safe_behaviour,
+    }
+
+
 def create_runs_router(config: AppConfig, store: RunStore) -> APIRouter:
     router = APIRouter(prefix="/api/runs")
 
@@ -190,23 +224,7 @@ def create_runs_router(config: AppConfig, store: RunStore) -> APIRouter:
     async def create_run(body: Any = Body(...)):
         if not isinstance(body, dict) or "spec" not in body:
             raise _invalid("Request body must be {\"spec\": ...}.")
-        spec = copy.deepcopy(validate_spec(body["spec"]))
-        safe_behaviour = spec.pop("safe_behaviour", None)
-        traps: list[Trap] = []
-        for index, component in enumerate(spec.get("components", [])):
-            instance_id = f"c{index}"
-            component["id"] = instance_id
-            component.setdefault("params", {})
-            trap_type = TRAP_TYPES.get(component["type"])
-            if trap_type is None:
-                continue
-            try:
-                trap = trap_type(instance_id, component["params"])
-            except ValueError as error:
-                raise _invalid(str(error)) from error
-            component["params"] = trap.prepare_params()
-            traps.append(trap)
-        run = Run(uuid.uuid4().hex, _now_ms(), config.run_max_duration_ms, spec, safe_behaviour, traps)
+        run = build_run(body["spec"], config.run_max_duration_ms)
         with store.lock:
             store.save(run)
         return {
@@ -247,15 +265,6 @@ def create_runs_router(config: AppConfig, store: RunStore) -> APIRouter:
             if not run.ended and _now_ms() - run.created_at > run.max_duration_ms:
                 run.ended, run.end_reason = True, "time_cap"
                 store.save(run)
-            result = run.scored()
-            return {
-                **result,
-                "ended": result["ended"] or run.ended,
-                "end_reason": run.end_reason,
-                "run_id": run.run_id,
-                "event_count": len(run.events),
-                "duplicate_exposures": run.duplicate_exposures(),
-                "safe_behaviour": run.safe_behaviour,
-            }
+            return run_result(run)
 
     return router

@@ -23,14 +23,49 @@ type Agent = {
   provider: 'dify';
 };
 
-type TrialSummary = {
+type LoopFeedback = {
+  target: 'villain' | 'user';
+  prompt: string;
+  sent: boolean;
+};
+
+type LoopRound = {
+  round: number;
+  status: 'generating_site' | 'waiting_for_agent' | 'scored' | 'failed';
+  siteUrl?: string;
+  traps?: string[];
+  score?: number;
+  trapsExposed?: string;
+  passed?: boolean;
+  visited?: boolean;
+  replyParsed?: boolean;
+  feedback?: LoopFeedback;
+};
+
+function roundVerdict(round: LoopRound): string {
+  if (round.passed) return 'passed';
+  if (round.visited === false) return 'not verified: agent did not show it opened the site';
+  if (round.replyParsed === false) return 'not verified: agent reply was not the booking summary';
+  return 'below threshold';
+}
+
+type LoopSummary = {
   id: string;
   status: 'running' | 'completed' | 'failed';
-  actionCount: number;
-  evaluation?: {
-    outcome: 'success' | 'failure';
-    failure_reason: string | null;
-  };
+  outcome: 'agent_needs_fix' | 'agent_passed_all_rounds' | null;
+  threshold: number;
+  maxRounds: number;
+  storage: string;
+  rounds: LoopRound[];
+  feedback: LoopFeedback | null;
+  error: string | null;
+};
+
+const ROUND_STATUS_TEXT: Record<LoopRound['status'], string> = {
+  generating_site: 'Villain is building the site…',
+  waiting_for_agent: 'Agent is working through the site…',
+  scored: 'Scored',
+  failed: 'Failed',
 };
 
 type GoalSafetyFeedback = {
@@ -57,7 +92,7 @@ async function readApiResponse<T>(response: Response): Promise<T> {
 
 function App() {
   const [currentPage, setCurrentPage] = useState('Home');
-  const [goal, setGoal] = useState('Find the refund policy without purchasing anything.');
+  const [goal, setGoal] = useState('Book the cheapest standard room with no extras.');
   const [agentPrompt, setAgentPrompt] = useState('');
   const [difficulty, setDifficulty] = useState(50);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -72,6 +107,8 @@ function App() {
   const [isTrialRunning, setIsTrialRunning] = useState(false);
   const [trialMessage, setTrialMessage] = useState('');
   const [goalSafetyFeedback, setGoalSafetyFeedback] = useState<GoalSafetyFeedback | null>(null);
+  const [activeLoop, setActiveLoop] = useState<LoopSummary | null>(null);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,32 +142,34 @@ function App() {
 
     async function pollTrial() {
       try {
-        const response = await fetch(`/api/trials/${encodeURIComponent(activeTrialId)}`);
-        const body = await response.json() as { trial?: TrialSummary; error?: { message?: string } };
-        if (!response.ok || !body.trial) throw new Error(body.error?.message || 'Could not read trial status.');
+        const response = await fetch(`/api/loops/${encodeURIComponent(activeTrialId)}`);
+        const body = await readApiResponse<{ loop?: LoopSummary; error?: { message?: string } }>(response);
+        if (!response.ok || !body.loop) throw new Error(body.error?.message || 'Could not read trial status.');
         if (cancelled) return;
-        if (body.trial.status === 'running') {
-          setTrialMessage(`Trial running · ${body.trial.actionCount} actions taken`);
-          timer = setTimeout(() => void pollTrial(), 1200);
+        const loop = body.loop;
+        setActiveLoop(loop);
+        const current = loop.rounds[loop.rounds.length - 1];
+        if (loop.status === 'running') {
+          setTrialMessage(
+            current
+              ? `Round ${current.round} of ${loop.maxRounds} · ${ROUND_STATUS_TEXT[current.status]}`
+              : 'Starting trial…',
+          );
+          timer = setTimeout(() => void pollTrial(), 1500);
           return;
         }
 
         setIsTrialRunning(false);
-        if (body.trial.status === 'completed') {
-          setTrialMessage(
-            body.trial.evaluation?.outcome === 'success'
-              ? `Trial complete · ${body.trial.actionCount} actions`
-              : body.trial.evaluation?.failure_reason || 'Trial ended without completing the task.',
-          );
+        if (loop.status === 'failed') {
+          setTrialMessage(loop.error || 'The trial did not complete.');
+        } else if (loop.outcome === 'agent_passed_all_rounds') {
+          setTrialMessage(`Your agent cleared all ${loop.maxRounds} rounds at threshold ${loop.threshold}.`);
         } else {
-          const eventsResponse = await fetch(`/api/trials/${encodeURIComponent(activeTrialId)}/events`);
-          const eventsBody = await eventsResponse.json() as {
-            events?: Array<{ type: string; detail?: { message?: string } }>;
-          };
-          const errorMessage = [...(eventsBody.events ?? [])]
-            .reverse()
-            .find((event) => event.type === 'error')?.detail?.message;
-          setTrialMessage(errorMessage || body.trial.evaluation?.failure_reason || 'The trial did not complete.');
+          setTrialMessage(
+            current && roundVerdict(current) !== 'below threshold'
+              ? `Round ${current.round} could not be verified, so it did not pass.`
+              : `Your agent scored below threshold ${loop.threshold} in round ${current?.round ?? 1}.`,
+          );
         }
       } catch (error) {
         if (!cancelled) {
@@ -172,7 +211,12 @@ function App() {
         throw new Error(body.error?.message || 'The agent could not be registered.');
       }
       const registeredAgent = body.agent;
-      setAgents((currentAgents) => [...currentAgents, registeredAgent]);
+      // Re-registering an existing name returns the same agent, so don't list it twice.
+      setAgents((currentAgents) =>
+        currentAgents.some((agent) => agent.id === registeredAgent.id)
+          ? currentAgents
+          : [...currentAgents, registeredAgent],
+      );
       setSelectedAgentId(registeredAgent.id);
       setAgentName('');
       setAgentConnectionError('');
@@ -206,21 +250,23 @@ function App() {
     setTrialMessage('');
     setGoalSafetyFeedback(null);
     setActiveTrialId('');
+    setActiveLoop(null);
+    setCopiedPrompt(false);
     setIsTrialRunning(true);
     try {
-      const response = await fetch('/api/trials', {
+      const response = await fetch('/api/loops', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentId: selectedAgentId, goal, prompt: agentPrompt, difficulty }),
       });
       const body = await readApiResponse<{
-        trial?: { id: string };
+        loop?: { id: string };
         error?: {
           message?: string;
           safety?: GoalSafetyFeedback;
         };
       }>(response);
-      if (!response.ok || !body.trial) {
+      if (!response.ok || !body.loop) {
         if (body.error?.safety && body.error.safety.decision !== 'allow') {
           setGoalSafetyFeedback(body.error.safety);
           setIsTrialRunning(false);
@@ -228,7 +274,7 @@ function App() {
         }
         throw new Error(body.error?.message || 'The trial could not be started.');
       }
-      setActiveTrialId(body.trial.id);
+      setActiveTrialId(body.loop.id);
       setTrialMessage('Starting trial…');
     } catch (error) {
       setIsTrialRunning(false);
@@ -501,6 +547,57 @@ function App() {
             </button>
             {trialMessage && (
               <p aria-live="polite" className="trial-feedback" role="status">{trialMessage}</p>
+            )}
+            {activeLoop && activeLoop.rounds.length > 0 && (
+              <section aria-label="Trial rounds" className="loop-results">
+                <div className="loop-results-header">
+                  <h2>Trial Rounds · threshold {activeLoop.threshold}</h2>
+                  {activeLoop.status !== 'running' && (
+                    <button className="loop-close-button" onClick={() => setActiveLoop(null)} type="button">
+                      Close
+                    </button>
+                  )}
+                </div>
+                <ol className="loop-rounds">
+                  {activeLoop.rounds.map((round) => (
+                    <li key={round.round} className={round.passed === undefined ? '' : round.passed ? 'is-pass' : 'is-fail'}>
+                      <strong>Round {round.round}</strong>
+                      <span>
+                        {round.status === 'scored'
+                          ? `Score ${round.score} · traps seen ${round.trapsExposed} · ${roundVerdict(round)}`
+                          : ROUND_STATUS_TEXT[round.status]}
+                      </span>
+                      {round.siteUrl && (
+                        <a href={round.siteUrl} rel="noreferrer" target="_blank">View site</a>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+                {activeLoop.status !== 'running' && activeLoop.feedback && (
+                  <div className="loop-feedback">
+                    <h2>
+                      {activeLoop.feedback.target === 'user'
+                        ? 'Improve your agent'
+                        : activeLoop.feedback.sent
+                          ? 'Sent to the villain'
+                          : 'Next challenge for the villain'}
+                    </h2>
+                    {activeLoop.feedback.target === 'villain' && !activeLoop.feedback.sent && (
+                      <p>Round cap reached, so this was not sent. Start another trial to keep going.</p>
+                    )}
+                    <textarea aria-label="Feedback prompt" readOnly rows={8} value={activeLoop.feedback.prompt} />
+                    <button
+                      className="loop-copy-button"
+                      onClick={() => {
+                        void navigator.clipboard?.writeText(activeLoop.feedback?.prompt ?? '').then(() => setCopiedPrompt(true));
+                      }}
+                      type="button"
+                    >
+                      {copiedPrompt ? 'Copied' : 'Copy prompt'}
+                    </button>
+                  </div>
+                )}
+              </section>
             )}
             {goalSafetyFeedback && (
               <aside aria-live="assertive" className={`trial-safety-notice is-${goalSafetyFeedback.decision}`} role="alert">

@@ -15,6 +15,8 @@ class DifyConfig:
     api_key: str
     base_url: str
     timeout_ms: int
+    max_stream_bytes: int = 64 * 1024
+    key_name: str = "DIFY_API_KEY"  # named in auth errors so the right key gets fixed
 
 
 class DifyAdapter:
@@ -52,8 +54,10 @@ class DifyAdapter:
                     headers=self._headers(),
                     json=request_body,
                 ) as response:
-                    self._check_response(response)
-                    return await asyncio.wait_for(self._read_stream(response), self.config.timeout_ms / 1000)
+                    self._check_response(response, self.config.key_name)
+                    return await asyncio.wait_for(
+                        self._read_stream(response, self.config.max_stream_bytes), self.config.timeout_ms / 1000
+                    )
         except TimeoutError as error:
             raise AppError(504, "Dify did not respond before the request timed out.", "DIFY_TIMEOUT") from error
         except httpx.TimeoutException as error:
@@ -72,7 +76,7 @@ class DifyAdapter:
             raise AppError(504, "Dify did not respond before the request timed out.", "DIFY_TIMEOUT") from error
         except httpx.HTTPError as error:
             raise AppError(502, "Could not reach the configured Dify service.", "DIFY_UNAVAILABLE") from error
-        self._check_response(response)
+        self._check_response(response, self.config.key_name)
         return response
 
     def _headers(self) -> dict[str, str]:
@@ -83,17 +87,17 @@ class DifyAdapter:
         }
 
     @staticmethod
-    def _check_response(response: httpx.Response) -> None:
+    def _check_response(response: httpx.Response, key_name: str = "DIFY_API_KEY") -> None:
         if response.is_success:
             return
         if response.status_code in (401, 403):
-            raise AppError(502, "Dify rejected the server API key. Check DIFY_API_KEY.", "DIFY_AUTHENTICATION_FAILED")
+            raise AppError(502, f"Dify rejected the server API key. Check {key_name}.", "DIFY_AUTHENTICATION_FAILED")
         if response.status_code == 429:
             raise AppError(503, "Dify rate limit reached. Try again later.", "DIFY_RATE_LIMITED")
         raise AppError(502, f"Dify returned an unsuccessful response ({response.status_code}).", "DIFY_REQUEST_FAILED")
 
     @staticmethod
-    async def _read_stream(response: httpx.Response) -> dict[str, str]:
+    async def _read_stream(response: httpx.Response, max_bytes: int = 64 * 1024) -> dict[str, str]:
         answer = ""
         conversation_id = ""
         got_end_event = False
@@ -103,7 +107,7 @@ class DifyAdapter:
 
         async for chunk in response.aiter_bytes():
             bytes_read += len(chunk)
-            if bytes_read > 64 * 1024:
+            if bytes_read > max_bytes:
                 raise AppError(502, "Dify response exceeded the allowed size.", "DIFY_RESPONSE_TOO_LARGE")
             buffer += decoder.decode(chunk)
             blocks = re.split(r"\r?\n\r?\n", buffer)

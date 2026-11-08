@@ -16,6 +16,7 @@ class JsonStore:
         self._agents_path = root / "agents.json"
         self._trials_path = root / "trials.json"
         self._safety_audit_path = root / "safety-decisions.json"
+        self._loops_path = root / "loops.json"
         self._lock = RLock()
         self._agents = self._read(self._agents_path, [])
         self._trials = self._read(self._trials_path, [])
@@ -24,6 +25,7 @@ class JsonStore:
             trial.setdefault("agentPrompt", None)
             trial.setdefault("actionHistory", [])
         self._safety_audit = self._read(self._safety_audit_path, [])
+        self._loops = self._read(self._loops_path, [])
 
     @staticmethod
     def _read(path: Path, fallback: Any) -> Any:
@@ -83,6 +85,23 @@ class JsonStore:
             else:
                 self._trials[index] = deepcopy(trial)
             self._write(self._trials_path, self._trials)
+
+    def list_loops(self) -> list[dict[str, Any]]:
+        with self._lock:
+            return deepcopy(self._loops)
+
+    def get_loop(self, loop_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            return deepcopy(next((loop for loop in self._loops if loop["id"] == loop_id), None))
+
+    def save_loop(self, loop: dict[str, Any]) -> None:
+        with self._lock:
+            index = next((i for i, current in enumerate(self._loops) if current["id"] == loop["id"]), None)
+            if index is None:
+                self._loops.append(deepcopy(loop))
+            else:
+                self._loops[index] = deepcopy(loop)
+            self._write(self._loops_path, self._loops)
 
     def record_safety_decision(self, entry: dict[str, str]) -> None:
         with self._lock:

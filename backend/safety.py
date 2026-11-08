@@ -226,6 +226,8 @@ def validate_result(value: Any) -> SafetyResult:
 def _known_navigation_goal(goal: str) -> bool:
     return goal.lower() == DEFAULT_TRIAL_GOAL.lower() or bool(
         re.fullmatch(r"\s*(find|locate|read|view)\s+(the\s+)?(refund|return)\s+policy[.!]?\s*", goal, re.I)
+        # The sandboxed hotel site built for each trial loop: plain room-booking tasks only.
+        or re.fullmatch(r"\s*book\s+(a|an|the|one)\s+[a-z ,'-]{0,40}\broom\b[a-z0-9 ,'£-]{0,80}[.!]?\s*", goal, re.I)
     )
 
 

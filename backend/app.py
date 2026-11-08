@@ -8,7 +8,7 @@ from typing import Any, Callable
 from fastapi import Body, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .config import AppConfig
@@ -16,7 +16,9 @@ from .dify import DifyAdapter, DifyConfig
 from .errors import AppError
 from .runs import RunStore, create_runs_router
 from .safety import GoalSafetyClassifier, GoalSafetyService, OpenAICompatibleClassifier, SafetyResult
+from .site_storage import LocalSiteStorage, S3SiteStorage, SiteStorage, content_type
 from .storage import JsonStore
+from .trap_loop import ChatClient, TrapLoopRunner
 from .trials import AgentClient, TrialRunner, to_summary
 
 logger = logging.getLogger("labyrinth")
@@ -95,6 +97,8 @@ def create_app(
     safety_classifier: GoalSafetyClassifier | None = None,
     dify_factory: Callable[[], DifyAdapter] | None = None,
     agent_client_factory: Callable[[str], AgentClient] | None = None,
+    villain_client_factory: Callable[[], ChatClient] | None = None,
+    site_storage: SiteStorage | None = None,
     serve_frontend: bool = False,
 ) -> FastAPI:
     app = FastAPI(title="Labyrinth Backend", docs_url=None, redoc_url=None)
@@ -129,9 +133,50 @@ def create_app(
         return adapter_factory()
 
     runner = TrialRunner(store, config.trial_action_limit, config.trial_time_limit_ms, get_agent_client)
+
+    # Loop calls wait for an agent that browses a site (or a villain that designs one), so they get a longer
+    # timeout and a larger stream allowance than the step-by-step trial calls.
+    loop_stream_bytes = 1024 * 1024
+
+    def get_loop_agent_client(agent_id: str) -> ChatClient:
+        if not store.get_agent(agent_id):
+            raise AppError(404, "Selected agent was not found.", "AGENT_NOT_FOUND")
+        ensure_dify_configured(config)
+        if agent_client_factory:
+            return agent_client_factory(agent_id)
+        return DifyAdapter(DifyConfig(
+            config.dify_api_key, config.dify_api_base_url, config.loop_agent_timeout_ms, loop_stream_bytes
+        ))
+
+    def get_villain_client() -> ChatClient:
+        if villain_client_factory:
+            return villain_client_factory()
+        if not config.villain_dify_api_key:
+            raise AppError(503, "The villain is not configured. Set VILLAIN_DIFY_API_KEY in the backend environment.",
+                           "VILLAIN_NOT_CONFIGURED")
+        return DifyAdapter(DifyConfig(
+            config.villain_dify_api_key,
+            config.villain_dify_api_base_url or config.dify_api_base_url,
+            config.loop_agent_timeout_ms,
+            loop_stream_bytes,
+            "VILLAIN_DIFY_API_KEY",
+        ))
+
+    if site_storage is None:
+        if config.s3_bucket:
+            site_storage = S3SiteStorage(config.s3_bucket, config.s3_prefix, config.s3_region, config.site_link_expiry_s)
+        else:
+            site_storage = LocalSiteStorage(Path(config.data_directory) / "sites", config.api_base_url)
+    run_store = RunStore(Path(config.data_directory) / "runs")
+    loop_runner = TrapLoopRunner(
+        store, run_store, site_storage, get_loop_agent_client, get_villain_client,
+        config.loop_max_rounds, config.run_max_duration_ms,
+    )
+
     app.state.config = config
     app.state.store = store
     app.state.runner = runner
+    app.state.loop_runner = loop_runner
 
     @app.exception_handler(AppError)
     async def app_error_handler(_request: Request, error: AppError):
@@ -149,7 +194,60 @@ def create_app(
             content={"error": {"code": "INVALID_JSON", "message": "Request body must be valid JSON."}},
         )
 
-    app.include_router(create_runs_router(config, RunStore(Path(config.data_directory) / "runs")))
+    app.include_router(create_runs_router(config, run_store))
+
+    async def validate_trial_request(body: Any) -> tuple[str, str, str, int] | JSONResponse:
+        """Shared checks for trials and loops: the cleaned fields, or the safety response to send back."""
+        if not isinstance(body, dict):
+            raise AppError(400, "A JSON request body is required.", "INVALID_TRIAL_REQUEST")
+        agent_id = body.get("agentId")
+        if not isinstance(agent_id, str) or not agent_id:
+            raise AppError(400, "Select an agent before starting a trial.", "INVALID_AGENT_ID")
+        goal = body.get("goal")
+        if not isinstance(goal, str) or not 5 <= len(goal.strip()) <= 300:
+            raise AppError(400, "Goal must be between 5 and 300 characters.", "INVALID_GOAL")
+        prompt = body.get("prompt", "")
+        if not isinstance(prompt, str) or len(prompt) > 500:
+            raise AppError(400, "Agent prompt must be 500 characters or fewer.", "INVALID_AGENT_PROMPT")
+        difficulty = body.get("difficulty")
+        if type(difficulty) is not int or not 0 <= difficulty <= 100:
+            raise AppError(400, "Difficulty must be a whole number from 0 to 100.", "INVALID_DIFFICULTY")
+        goal = goal.strip()
+        prompt = prompt.strip()
+        safety_input = f"{goal}\nAdditional agent prompt: {prompt}" if prompt else goal
+        try:
+            safety = await goal_safety.evaluate(safety_input)
+        except AppError as error:
+            if not error.code.startswith("GOAL_SAFETY_"):
+                raise
+            unavailable = SafetyResult(
+                "review",
+                "Goal safety validation is unavailable. Please try again later.",
+                "safety_service_unavailable",
+            )
+            _record_safety(store, unavailable)
+            return JSONResponse(
+                status_code=503,
+                content={"error": {
+                    "code": error.code,
+                    "message": unavailable.reason,
+                    "safety": unavailable.to_dict(),
+                }},
+            )
+        _record_safety(store, safety)
+        if safety.decision == "block":
+            return JSONResponse(status_code=403, content={"error": {
+                "code": "GOAL_SAFETY_BLOCKED",
+                "message": "This goal may involve unsafe or unauthorised activity. Please enter a legitimate website-navigation task.",
+                "safety": safety.to_dict(),
+            }})
+        if safety.decision == "review":
+            return JSONResponse(status_code=422, content={"error": {
+                "code": "GOAL_SAFETY_REVIEW",
+                "message": safety.reason,
+                "safety": safety.to_dict(),
+            }})
+        return agent_id, goal, prompt, difficulty
 
     @app.get("/health")
     @app.get("/api/health")
@@ -227,60 +325,51 @@ def create_app(
 
     @app.post("/api/trials")
     async def start_trial(body: Any = Body(...)):
-        if not isinstance(body, dict):
-            raise AppError(400, "A JSON request body is required.", "INVALID_TRIAL_REQUEST")
-        agent_id = body.get("agentId")
-        if not isinstance(agent_id, str) or not agent_id:
-            raise AppError(400, "Select an agent before starting a trial.", "INVALID_AGENT_ID")
-        goal = body.get("goal")
-        if not isinstance(goal, str) or not 5 <= len(goal.strip()) <= 300:
-            raise AppError(400, "Goal must be between 5 and 300 characters.", "INVALID_GOAL")
-        prompt = body.get("prompt", "")
-        if not isinstance(prompt, str) or len(prompt) > 500:
-            raise AppError(400, "Agent prompt must be 500 characters or fewer.", "INVALID_AGENT_PROMPT")
-        difficulty = body.get("difficulty")
-        if type(difficulty) is not int or not 0 <= difficulty <= 100:
-            raise AppError(400, "Difficulty must be a whole number from 0 to 100.", "INVALID_DIFFICULTY")
-        goal = goal.strip()
-        prompt = prompt.strip()
-        safety_input = f"{goal}\nAdditional agent prompt: {prompt}" if prompt else goal
-        try:
-            safety = await goal_safety.evaluate(safety_input)
-        except AppError as error:
-            if not error.code.startswith("GOAL_SAFETY_"):
-                raise
-            unavailable = SafetyResult(
-                "review",
-                "Goal safety validation is unavailable. Please try again later.",
-                "safety_service_unavailable",
-            )
-            _record_safety(store, unavailable)
-            return JSONResponse(
-                status_code=503,
-                content={"error": {
-                    "code": error.code,
-                    "message": unavailable.reason,
-                    "safety": unavailable.to_dict(),
-                }},
-            )
-        _record_safety(store, safety)
-        if safety.decision == "block":
-            return JSONResponse(status_code=403, content={"error": {
-                "code": "GOAL_SAFETY_BLOCKED",
-                "message": "This goal may involve unsafe or unauthorised activity. Please enter a legitimate website-navigation task.",
-                "safety": safety.to_dict(),
-            }})
-        if safety.decision == "review":
-            return JSONResponse(status_code=422, content={"error": {
-                "code": "GOAL_SAFETY_REVIEW",
-                "message": safety.reason,
-                "safety": safety.to_dict(),
-            }})
+        checked = await validate_trial_request(body)
+        if isinstance(checked, JSONResponse):
+            return checked
+        agent_id, goal, prompt, difficulty = checked
         if runner.active_count >= 3:
             raise AppError(429, "The server is already running the maximum number of trials.", "TRIAL_CAPACITY_REACHED")
         ensure_dify_configured(config)
         trial = runner.start(agent_id, goal, difficulty, prompt)
         return JSONResponse(status_code=202, content={"trial": to_summary(trial)})
+
+    @app.post("/api/loops")
+    async def start_loop(body: Any = Body(...)):
+        checked = await validate_trial_request(body)
+        if isinstance(checked, JSONResponse):
+            return checked
+        agent_id, goal, prompt, threshold = checked
+        if loop_runner.active_count >= 3:
+            raise AppError(429, "The server is already running the maximum number of trials.", "TRIAL_CAPACITY_REACHED")
+        ensure_dify_configured(config)
+        get_villain_client()  # fail now, not mid-loop, if the villain is not configured
+        loop = loop_runner.start(agent_id, goal, threshold, prompt)
+        return JSONResponse(status_code=202, content={"loop": loop})
+
+    @app.get("/api/loops")
+    async def list_loops():
+        return {"loops": store.list_loops()}
+
+    @app.get("/api/loops/{loop_id}")
+    async def get_loop(loop_id: str):
+        loop = store.get_loop(loop_id)
+        if not loop:
+            raise AppError(404, "Trial loop was not found.", "LOOP_NOT_FOUND")
+        return {"loop": loop}
+
+    if isinstance(site_storage, LocalSiteStorage):
+        local_sites = site_storage
+
+        @app.get("/sites/{key:path}")
+        async def local_site_file(key: str):
+            path = local_sites.path_for(key)
+            if path is None or not path.is_file():
+                raise AppError(404, "Site file was not found.", "SITE_NOT_FOUND")
+            # Small files: a plain Response avoids FileResponse's disconnect watcher, which the
+            # request-size middleware's replayed receive() would trip.
+            return Response(path.read_bytes(), media_type=content_type(path.name))
 
     @app.get("/api/trials")
     async def list_trials():

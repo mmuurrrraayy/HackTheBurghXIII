@@ -46,6 +46,14 @@ class AppConfig:
     site_base_url: str = "http://localhost:5173"
     api_base_url: str = "http://127.0.0.1:3001"
     run_max_duration_ms: int = 600_000
+    villain_dify_api_key: str = ""
+    villain_dify_api_base_url: str = ""  # empty: same Dify site as the agent (dify_api_base_url)
+    loop_max_rounds: int = 3
+    loop_agent_timeout_ms: int = 300_000
+    s3_bucket: str = ""
+    s3_prefix: str = "labyrinth"
+    s3_region: str = ""
+    site_link_expiry_s: int = 86_400
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -75,4 +83,17 @@ class AppConfig:
                 "API_BASE_URL", os.getenv("API_BASE_URL", ""), "http://127.0.0.1:3001"
             ),
             run_max_duration_ms=_positive_int("RUN_MAX_DURATION_MS", 600_000),
+            # villain.py reads DIFY_KEY, so accept it as a fallback for the villain app's key.
+            villain_dify_api_key=(os.getenv("VILLAIN_DIFY_API_KEY") or os.getenv("DIFY_KEY") or "").strip(),
+            villain_dify_api_base_url=_validated_url(
+                "DIFY_API_VILLAIN_URL",
+                os.getenv("DIFY_API_VILLAIN_URL") or os.getenv("VILLAIN_DIFY_API_BASE_URL") or "",
+            ),
+            loop_max_rounds=_positive_int("LOOP_MAX_ROUNDS", 3),
+            loop_agent_timeout_ms=_positive_int("LOOP_AGENT_TIMEOUT_MS", 300_000),
+            s3_bucket=os.getenv("S3_BUCKET", "").strip(),
+            s3_prefix=os.getenv("S3_PREFIX", "labyrinth").strip(),
+            s3_region=os.getenv("S3_REGION", "").strip(),
+            # Presigned S3 links cannot outlive 7 days.
+            site_link_expiry_s=min(_positive_int("SITE_LINK_EXPIRY_S", 86_400), 604_800),
         )
