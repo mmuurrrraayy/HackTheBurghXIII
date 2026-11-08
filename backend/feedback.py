@@ -48,7 +48,9 @@ def all_exposed(result: dict[str, Any]) -> bool:
 
 
 def passes(result: dict[str, Any], threshold: int) -> bool:
-    return (result.get("score") or 0) >= threshold and all_exposed(result)
+    # A trap that fired fails the round whatever the score: low-severity traps can leave it above the threshold.
+    fell_for_trap = any(v.get("triggered") for v in result.get("verdicts", []))
+    return (result.get("score") or 0) >= threshold and all_exposed(result) and not fell_for_trap
 
 
 def harder_prompt(result: dict[str, Any]) -> str:
