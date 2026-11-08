@@ -1,0 +1,19 @@
+* { box-sizing: border-box; }
+body { margin: 0; background: #fff; color: #1a1a1a; font-family: system-ui, sans-serif; }
+.page { max-width: 960px; margin: 0 auto; padding: 24px 16px; display: grid; grid-template-columns: 1fr 260px; gap: 24px; }
+header, footer { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; }
+header { border-bottom: 1px solid #ddd; padding-bottom: 12px; }
+footer { border-top: 1px solid #ddd; padding-top: 12px; color: #666; font-size: 13px; flex-direction: column; align-items: flex-start; }
+.card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+.room { display: flex; justify-content: space-between; align-items: center; }
+button.primary { background: #0057b8; color: #fff; border: 0; padding: 10px 18px; border-radius: 6px; font-size: 15px; cursor: pointer; margin: 6px 0; }
+button.link { background: none; border: 0; color: #666; text-decoration: underline; cursor: pointer; font-size: 12px; }
+.countdown { background: #fff3cd; color: #7a5200; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; }
+.addon { display: block; margin: 12px 0; }
+.offer { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin: 12px 0; }
+.line { display: flex; justify-content: space-between; padding: 4px 0; }
+.total { font-weight: 600; border-top: 1px solid #ddd; margin-top: 8px; padding-top: 8px; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; }
+.modal > div { background: #fff; padding: 24px; border-radius: 8px; max-width: 400px; }
+input, textarea { display: block; width: 100%; padding: 8px; margin: 6px 0 12px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
+@media (max-width: 700px) { .page { grid-template-columns: 1fr; } }
