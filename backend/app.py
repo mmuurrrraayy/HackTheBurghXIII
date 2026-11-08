@@ -1,17 +1,19 @@
 import json
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from fastapi import Body, FastAPI, Request
+from fastapi import Body, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .config import AppConfig
+from .archives import archive_summary, archive_trial, csv_filename, export_archives_csv, trial_details
 from .dify import DifyAdapter, DifyConfig
 from .errors import AppError
 from .runs import RunStore, create_runs_router
@@ -160,6 +162,42 @@ def create_app(
     async def list_agents():
         return {"agents": store.list_agents()}
 
+    @app.get("/api/agents/{agent_id}/archives/export")
+    async def export_agent_archives(agent_id: str):
+        validate_record_id(agent_id, "agent")
+        agent = store.get_agent(agent_id)
+        if not agent:
+            raise AppError(404, "Agent was not found.", "AGENT_NOT_FOUND")
+        trials = sorted(
+            store.list_trials_for_agent(agent_id),
+            key=lambda trial: trial.get("startedAt", ""),
+            reverse=True,
+        )
+        content = export_archives_csv(agent, trials)
+        filename = csv_filename(agent["name"])
+        return Response(
+            content=content,
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    @app.get("/api/agents/{agent_id}/archives")
+    async def get_agent_archives(agent_id: str):
+        validate_record_id(agent_id, "agent")
+        agent = store.get_agent(agent_id)
+        if not agent:
+            raise AppError(404, "Agent was not found.", "AGENT_NOT_FOUND")
+        trials = sorted(
+            store.list_trials_for_agent(agent_id),
+            key=lambda trial: trial.get("startedAt", ""),
+            reverse=True,
+        )
+        return {
+            "agent": {"id": agent["id"], "name": agent["name"]},
+            "summary": archive_summary(trials),
+            "trials": [archive_trial(trial) for trial in trials],
+        }
+
     @app.post("/api/agents")
     async def register_agent(body: Any = Body(...)):
         ensure_dify_configured(config)
@@ -287,14 +325,21 @@ def create_app(
         return {"trials": [to_summary(trial) for trial in store.list_trials()]}
 
     @app.get("/api/trials/{trial_id}")
-    async def get_trial(trial_id: str):
+    async def get_trial(trial_id: str, details: bool = Query(default=False)):
+        validate_record_id(trial_id, "trial")
         trial = store.get_trial(trial_id)
         if not trial:
             raise AppError(404, "Trial was not found.", "TRIAL_NOT_FOUND")
+        if details:
+            agent = store.get_agent(trial.get("agentId", ""))
+            if not agent:
+                raise AppError(404, "Agent was not found.", "AGENT_NOT_FOUND")
+            return {"trial": trial_details(trial, agent)}
         return {"trial": to_summary(trial)}
 
     @app.get("/api/trials/{trial_id}/events")
     async def get_trial_events(trial_id: str):
+        validate_record_id(trial_id, "trial")
         trial = store.get_trial(trial_id)
         if not trial:
             raise AppError(404, "Trial was not found.", "TRIAL_NOT_FOUND")
@@ -320,6 +365,11 @@ def create_app(
             return FileResponse(dist / "index.html")
 
     return app
+
+
+def validate_record_id(record_id: str, record_type: str) -> None:
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", record_id):
+        raise AppError(400, f"Invalid {record_type} ID.", f"INVALID_{record_type.upper()}_ID")
 
 
 def ensure_dify_configured(config: AppConfig) -> None:

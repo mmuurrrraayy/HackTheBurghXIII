@@ -71,6 +71,13 @@ class JsonStore:
         with self._lock:
             return deepcopy(self._trials)
 
+    def list_trials_for_agent(self, agent_id: str) -> list[dict[str, Any]]:
+        with self._lock:
+            return deepcopy([
+                trial for trial in self._trials
+                if trial.get("agentId") == agent_id
+            ])
+
     def get_trial(self, trial_id: str) -> dict[str, Any] | None:
         with self._lock:
             return deepcopy(next((trial for trial in self._trials if trial["id"] == trial_id), None))
