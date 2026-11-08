@@ -1,0 +1,1421 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #3e352c;
+  background-color: #53764a;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  min-width: 320px;
+  margin: 0;
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: transparent;
+}
+
+.starter {
+  position: relative;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(12px, 2.2vw, 30px);
+  overflow: hidden;
+  text-align: center;
+  background-image: url('./assets/HomeBackground.png');
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-attachment: fixed;
+  transition: background-image .2s ease;
+}
+
+.starter.stone-page {
+  background-image: url('./assets/TrialBackground.png');
+}
+
+.starter:not(.stone-page) {
+  background-position: center calc(50% + 12vh);
+}
+
+.home-header {
+  position: relative;
+  width: 100%;
+  display: grid;
+  grid-template-columns:
+    minmax(220px, clamp(220px, 31vw, 520px))
+    minmax(0, 1fr)
+    minmax(150px, clamp(150px, 17vw, 245px));
+  align-items: center;
+  gap: clamp(10px, 1.8vw, 28px);
+}
+
+.home-title-board {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  aspect-ratio: 2172 / 724;
+  filter: drop-shadow(0 8px 14px rgba(30, 34, 24, .52));
+}
+
+.home-title-board::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 5% 3%;
+  border: 1px solid rgba(255, 227, 177, .28);
+  border-radius: 4px;
+  background: rgba(42, 39, 28, .34);
+  box-shadow: inset 0 0 0 2px rgba(54, 37, 26, .2), 0 3px 8px rgba(27, 31, 23, .28);
+  backdrop-filter: blur(2px);
+}
+
+.title-board-artwork {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.title-board-copy {
+  position: absolute;
+  inset: 24% 13% 21% 15%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(3px, .7vw, 8px);
+  color: #fff0c3;
+  line-height: 1.15;
+  text-align: center;
+  text-shadow: 2px 2px 0 #552d20, 0 2px 9px rgba(20, 13, 10, .95);
+}
+
+.title-board-copy h1,
+.title-board-copy p {
+  margin: 0;
+}
+
+.title-board-copy h1 {
+  font-family: 'IM Fell English SC', Georgia, serif;
+  color: inherit;
+  font-size: clamp(20px, 2.3vw, 36px);
+  font-weight: 400;
+  letter-spacing: clamp(1px, .16vw, 2px);
+}
+
+.title-board-copy p {
+  font-family: 'Alegreya Sans SC', sans-serif;
+  color: #ffe4aa;
+  font-size: clamp(11px, 1.15vw, 17px);
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.home-navbar {
+  position: relative;
+  width: min(100%, 560px);
+  justify-self: center;
+  aspect-ratio: 9.83 / 1;
+  overflow: hidden;
+  filter: drop-shadow(0 5px 8px rgba(30, 34, 24, .48));
+}
+
+.navbar-artwork {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  display: block;
+  width: 100%;
+  height: auto;
+  transform: translateY(-50%);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.navbar-labels {
+  position: absolute;
+  inset: 14% 4%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  justify-items: center;
+}
+
+.navbar-label {
+  position: relative;
+  padding: 5px 3px 7px;
+  border: 0;
+  background: transparent;
+  color: #fff0c3;
+  font-family: 'Alegreya Sans SC', Georgia, serif;
+  font-size: clamp(11px, 1.1vw, 16px);
+  font-weight: 800;
+  text-shadow: 1px 2px 0 #552d20, 0 2px 7px rgba(20, 13, 10, .95);
+  transition: color .16s ease, transform .16s ease;
+  cursor: pointer;
+}
+
+.navbar-label:hover {
+  color: #ffe29a;
+  transform: translateY(-1px);
+}
+
+.navbar-label.is-active::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  left: 3px;
+  height: 2px;
+  background: #ffe29a;
+  box-shadow: 0 1px 0 #693d25, 0 0 5px rgba(255, 226, 154, .55);
+}
+
+.navbar-label:focus-visible {
+  outline: 2px solid #ffe29a;
+  outline-offset: 2px;
+}
+
+.home-profile {
+  grid-column: 3;
+  width: 100%;
+  max-width: 245px;
+  justify-self: end;
+  filter: drop-shadow(0 5px 8px rgba(30, 34, 24, .48));
+}
+
+.home-profile img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.main-display-panel {
+  position: relative;
+  align-self: flex-end;
+  flex: 0 0 auto;
+  width: min(78vw, 130vh);
+  aspect-ratio: 1774 / 887;
+  margin: clamp(22px, 3vh, 38px) 0 24px auto;
+  filter: drop-shadow(0 10px 18px rgba(25, 32, 22, .42));
+}
+
+.main-display-artwork {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.trials-page-panel {
+  position: absolute;
+  top: 62%;
+  left: 50%;
+  width: min(78vw, 130vh);
+  aspect-ratio: 1774 / 887;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 10px 18px rgba(25, 32, 22, .42));
+}
+
+.trials-page-panel::after {
+  position: absolute;
+  top: 30%;
+  bottom: 30%;
+  left: 50%;
+  width: 1px;
+  background: rgba(112, 64, 37, .55);
+  box-shadow: 1px 0 rgba(255, 241, 207, .45);
+  content: '';
+  pointer-events: none;
+}
+
+.trials-page-artwork {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.trial-setup-header {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  display: flex;
+  width: 84%;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(2px, .3vw, 4px);
+  padding-bottom: 1px;
+  transform: translateX(-50%);
+  border-bottom: 1px solid rgba(112, 64, 37, .58);
+  color: #3b2115;
+  text-align: center;
+}
+
+.trial-setup-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(7px, 1vw, 12px);
+  margin: 0;
+  transform: translateY(clamp(2px, .35vw, 5px));
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(20px, 3vw, 40px);
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.trial-swords-icon {
+  display: block;
+  flex: 0 0 auto;
+  width: clamp(28px, 4vw, 52px);
+  height: clamp(28px, 4vw, 52px);
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.trial-setup-subtitle {
+  margin: 0;
+  color: #76563d;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(12px, 1.5vw, 20px);
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.trial-agent-selection {
+  position: absolute;
+  top: 31%;
+  left: 7%;
+  display: flex;
+  width: 38%;
+  flex-direction: column;
+  min-width: 0;
+  color: #3b2115;
+  text-align: left;
+}
+
+.agent-selection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(4px, .7vw, 9px);
+}
+
+.agent-selection-heading {
+  min-width: 0;
+  font-size: clamp(14px, 1.8vw, 22px);
+}
+
+.agent-selection-icon {
+  display: block;
+  flex: 0 0 auto;
+  width: clamp(24px, 2.8vw, 36px);
+  height: clamp(24px, 2.8vw, 36px);
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.agent-select-wrap {
+  position: relative;
+  margin-top: clamp(5px, .7vw, 10px);
+}
+
+.agent-prompt-section {
+  margin-top: clamp(8px, 1vw, 14px);
+}
+
+.agent-select-wrap::after {
+  position: absolute;
+  top: calc(50% + 4px);
+  right: clamp(8px, 1vw, 14px);
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #704025;
+  border-bottom: 2px solid #704025;
+  content: '';
+  pointer-events: none;
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.agent-select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: clamp(13px, 1.6vw, 21px);
+  padding: 3px clamp(24px, 2.8vw, 36px) 3px clamp(5px, .65vw, 9px);
+  appearance: none;
+  border: 1px solid #aa7740;
+  border-radius: 4px;
+  background: #fff1cf;
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(10px, 1.15vw, 15px);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.agent-select:focus-visible,
+.add-agent-button:focus-visible,
+.agent-form input:focus-visible {
+  outline: 2px solid #426b43;
+  outline-offset: 2px;
+}
+
+.agent-empty-state {
+  margin: clamp(4px, .5vw, 7px) 0 0;
+  color: #76563d;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(9px, 1vw, 12px);
+  line-height: 1.2;
+}
+
+.add-agent-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  width: auto;
+  min-height: clamp(28px, 3.2vw, 42px);
+  margin-top: 0;
+  padding: 4px clamp(7px, .8vw, 11px);
+  border: 1px solid #aa7740;
+  border-radius: 4px;
+  background: #f8e3b5;
+  box-shadow: inset 0 1px rgba(255, 241, 207, .8), 0 2px 0 rgba(112, 64, 37, .22);
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(10px, 1.1vw, 14px);
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: filter .12s ease, transform .12s ease;
+}
+
+.add-agent-button:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.add-agent-button:active {
+  box-shadow: inset 0 1px 2px rgba(75, 43, 26, .25);
+  transform: translateY(1px);
+}
+
+.add-agent-plus {
+  color: #426b43;
+  font-family: Georgia, serif;
+  font-size: 1.25em;
+  line-height: .8;
+}
+
+.add-agent-arrow {
+  color: #704025;
+  font-family: Georgia, serif;
+  font-size: 1.6em;
+  line-height: .7;
+}
+
+.agent-form-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(31, 26, 19, .62);
+}
+
+.agent-form {
+  display: flex;
+  width: min(100%, 380px);
+  flex-direction: column;
+  gap: 12px;
+  padding: clamp(16px, 4vw, 26px);
+  border: 3px solid #704025;
+  border-radius: 7px;
+  background: #f8e3b5;
+  box-shadow: inset 0 0 0 2px #dca35c, 0 8px 24px rgba(20, 14, 9, .45);
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  text-align: left;
+}
+
+.agent-form h2 {
+  margin: 0;
+  font-size: 24px;
+  text-align: left;
+}
+
+.agent-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.agent-form-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.agent-form-description {
+  margin: 0;
+  color: #704025;
+  font-size: 14px;
+  text-align: center;
+}
+
+.agent-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.agent-form label {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.agent-form input {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid #aa7740;
+  border-radius: 4px;
+  background: #fff1cf;
+  color: #3b2115;
+  font: inherit;
+}
+
+.agent-endpoint-help {
+  margin: 0;
+  color: #704025;
+  font-family: Georgia, serif;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.agent-form-error {
+  margin: 0;
+  padding: 8px;
+  border: 1px solid #9a4c32;
+  border-radius: 4px;
+  background: #f3d0b4;
+  color: #6f291b;
+  font-family: Georgia, serif;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.agent-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.agent-form-actions button {
+  min-height: 34px;
+  padding: 5px 10px;
+  border: 1px solid #8e5c34;
+  border-radius: 4px;
+  background: #e7c68b;
+  color: #3b2115;
+  font: 700 14px 'IM Fell English SC', Georgia, serif;
+  cursor: pointer;
+}
+
+.agent-form-actions button[type='submit'] {
+  background: #a86e3c;
+  color: #fff1cf;
+}
+
+.agent-form-actions button:disabled {
+  cursor: wait;
+  opacity: .7;
+}
+
+.agent-form-actions button:hover {
+  filter: brightness(1.06);
+}
+
+.agent-form-actions button:active {
+  transform: translateY(1px);
+  filter: brightness(.95);
+}
+
+.trial-configuration {
+  position: absolute;
+  top: 31%;
+  right: 7%;
+  display: flex;
+  width: 38%;
+  flex-direction: column;
+  min-width: 0;
+  color: #3b2115;
+  text-align: left;
+}
+
+.configuration-heading {
+  display: flex;
+  align-items: center;
+  gap: clamp(5px, .75vw, 10px);
+  margin: 0;
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(14px, 1.8vw, 22px);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.configuration-leaf {
+  display: block;
+  flex: 0 0 auto;
+  width: clamp(20px, 2.4vw, 32px);
+  height: clamp(20px, 2.4vw, 32px);
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.goal-entry-row {
+  display: block;
+  margin-top: clamp(3px, .45vw, 7px);
+  min-width: 0;
+}
+
+.goal-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: clamp(72px, 8vw, 100px);
+  min-height: 56px;
+  padding: 6px clamp(5px, .65vw, 9px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  resize: vertical;
+  border: 1px solid #aa7740;
+  border-radius: 4px;
+  background: #fff1cf;
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(10px, 1.15vw, 15px);
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.goal-input:focus-visible,
+.difficulty-number:focus-visible {
+  outline: 2px solid #426b43;
+  outline-offset: 2px;
+}
+
+.difficulty-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  margin-top: clamp(6px, .8vw, 12px);
+}
+
+.difficulty-heading {
+  font-size: clamp(13px, 1.6vw, 20px);
+}
+
+.difficulty-icon {
+  display: block;
+  flex: 0 0 auto;
+  width: clamp(17px, 2vw, 26px);
+  height: clamp(17px, 2vw, 26px);
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.difficulty-number {
+  width: clamp(53px, 7vw, 82px);
+  min-width: 0;
+  padding: 2px 3px;
+  border: 1px solid #aa7740;
+  border-radius: 3px;
+  background: #fff1cf;
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(10px, 1.1vw, 14px);
+  font-weight: 700;
+  text-align: center;
+}
+
+.difficulty-slider {
+  display: block;
+  width: 100%;
+  height: clamp(9px, 1.1vw, 14px);
+  margin: clamp(3px, .45vw, 7px) 0 0;
+  appearance: none;
+  border: 1px solid rgba(88, 59, 38, .55);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.difficulty-slider::-webkit-slider-thumb {
+  width: clamp(12px, 1.35vw, 18px);
+  height: clamp(12px, 1.35vw, 18px);
+  appearance: none;
+  border: 2px solid #704025;
+  border-radius: 2px;
+  background: #e7b552;
+  box-shadow: inset 0 0 0 1px #ffdf87, 1px 1px 0 rgba(53, 34, 20, .45);
+}
+
+.difficulty-slider::-moz-range-thumb {
+  width: clamp(9px, 1vw, 14px);
+  height: clamp(9px, 1vw, 14px);
+  border: 2px solid #704025;
+  border-radius: 2px;
+  background: #e7b552;
+  box-shadow: inset 0 0 0 1px #ffdf87, 1px 1px 0 rgba(53, 34, 20, .45);
+}
+
+.difficulty-slider:focus-visible {
+  outline: 2px solid #426b43;
+  outline-offset: 3px;
+}
+
+.difficulty-markers {
+  display: flex;
+  justify-content: space-between;
+  gap: 3px;
+  margin-top: clamp(2px, .35vw, 5px);
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(8px, .9vw, 12px);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.difficulty-easy {
+  color: #426b43;
+}
+
+.difficulty-medium {
+  color: #3b2115;
+}
+
+.difficulty-extreme {
+  color: #8d342b;
+}
+
+.trial-go-button {
+  position: absolute;
+  bottom: clamp(24px, 2.8vw, 38px);
+  left: 50%;
+  display: block;
+  width: 34%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  line-height: 0;
+  transform: translateX(-50%);
+  cursor: pointer;
+  transition: filter .12s ease, transform .12s ease;
+}
+
+.trial-go-button img {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.trial-go-button:hover {
+  filter: brightness(1.08);
+  transform: translate(-50%, -2px);
+}
+
+.trial-go-button:active {
+  filter: brightness(.92);
+  transform: translate(-50%, 1px);
+}
+
+.trial-go-button:focus-visible {
+  outline: 2px solid #704025;
+  outline-offset: 3px;
+}
+
+.trial-go-button:disabled {
+  filter: grayscale(.65) opacity(.55);
+  cursor: not-allowed;
+}
+
+.trial-go-button:disabled:hover,
+.trial-go-button:disabled:active {
+  transform: translateX(-50%);
+}
+
+.trial-feedback {
+  position: absolute;
+  right: 12%;
+  bottom: 3%;
+  left: 12%;
+  overflow: hidden;
+  margin: 0;
+  color: #704025;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(9px, 1vw, 13px);
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+}
+
+.trial-safety-notice {
+  position: absolute;
+  z-index: 4;
+  right: 12%;
+  bottom: clamp(58px, 7vw, 88px);
+  left: 12%;
+  padding: clamp(6px, .8vw, 11px) clamp(9px, 1.2vw, 16px);
+  border: 2px solid #704025;
+  border-radius: 5px;
+  background: #f8e3b5;
+  box-shadow: inset 0 0 0 1px #dca35c, 0 3px 8px rgba(20, 14, 9, .3);
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  text-align: center;
+}
+
+.trial-safety-notice.is-block {
+  border-color: #8d342b;
+  box-shadow: inset 0 0 0 1px #d89474, 0 3px 8px rgba(20, 14, 9, .3);
+}
+
+.trial-safety-notice h2 {
+  margin: 0 0 3px;
+  font-size: clamp(12px, 1.35vw, 18px);
+}
+
+.trial-safety-notice p {
+  margin: 0;
+  font-size: clamp(9px, 1vw, 13px);
+  line-height: 1.25;
+}
+
+.trial-safety-notice p + p {
+  margin-top: 2px;
+}
+
+.agents-page-content {
+  position: absolute;
+  inset: 14% 12%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #3b2115;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  text-align: center;
+}
+
+.agents-page-title {
+  margin: 0 0 12px;
+  font-size: clamp(20px, 3vw, 38px);
+}
+
+.agents-page-list {
+  display: grid;
+  width: min(100%, 560px);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agents-page-list li {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid #aa7740;
+  border-radius: 4px;
+  background: rgba(255, 241, 207, .82);
+  text-align: left;
+}
+
+.agents-page-list img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.agents-page-list small {
+  color: #76563d;
+}
+
+.agents-page-error {
+  color: #8d342b;
+}
+
+.agents-page-add {
+  margin-top: 12px;
+  padding: 6px 12px;
+  border: 1px solid #8e5c34;
+  border-radius: 4px;
+  background: #e7c68b;
+  color: #3b2115;
+  font: 700 14px 'IM Fell English SC', Georgia, serif;
+  cursor: pointer;
+}
+
+.main-display-content {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.trials-content {
+  position: absolute;
+  top: 18%;
+  left: 7%;
+  width: 49%;
+  height: 66%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  min-height: 0;
+  pointer-events: auto;
+  text-align: left;
+}
+
+.trials-heading {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, .8vw, 11px);
+  min-height: 0;
+  margin: 0;
+  color: #563923;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(18px, 2vw, 29px);
+  font-weight: 400;
+  letter-spacing: clamp(1px, .16vw, 2px);
+  line-height: 1;
+  text-shadow: 0 1px #fff0c8;
+}
+
+.trials-leaf {
+  display: block;
+  width: clamp(20px, 2.3vw, 32px);
+  height: clamp(20px, 2.3vw, 32px);
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.entrance-artwork {
+  position: relative;
+  display: flex;
+  flex: 0 1 78%;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 5px;
+}
+
+.entrance-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 58% 60%;
+  transform: translate(1.5%, -2%) scale(1.03);
+  transform-origin: center;
+  border-radius: inherit;
+  image-rendering: pixelated;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.start-trials-button {
+  position: absolute;
+  bottom: clamp(8px, 1vw, 16px);
+  left: clamp(8px, 1vw, 16px);
+  width: clamp(96px, 30%, 180px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  line-height: 0;
+  cursor: pointer;
+  transition: transform .12s ease, filter .12s ease;
+}
+
+.start-trials-button img {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.start-trials-button:hover {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+}
+
+.start-trials-button:active {
+  filter: brightness(.92);
+  transform: translateY(1px);
+}
+
+.start-trials-button:focus-visible {
+  outline: 2px solid #704025;
+  outline-offset: 3px;
+}
+
+.agents-content,
+.archive-content {
+  position: absolute;
+  left: 62%;
+  width: 31%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  pointer-events: auto;
+  text-align: left;
+}
+
+.agents-content {
+  top: 18%;
+  height: 28%;
+}
+
+.archive-content {
+  top: 55%;
+  height: 30%;
+}
+
+.section-hit-area {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.noticeboard-heading,
+.agents-preview,
+.archive-preview {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.noticeboard-heading {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: clamp(4px, .7vw, 9px);
+  margin: 0;
+  color: #563923;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: clamp(12px, 1.8vw, 25px);
+  font-weight: 400;
+  letter-spacing: clamp(.5px, .12vw, 1.5px);
+  line-height: 1;
+  text-shadow: 0 1px #fff0c8;
+}
+
+.noticeboard-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: clamp(14px, 1.8vw, 23px);
+  height: clamp(14px, 1.8vw, 23px);
+  line-height: 1;
+}
+
+.archive-icon {
+  width: clamp(20px, 2.3vw, 30px);
+  height: clamp(20px, 2.3vw, 30px);
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
+.agents-preview {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(2px, .45vw, 7px);
+  min-height: 0;
+}
+
+.agent-icon-row {
+  display: block;
+  flex: 1 1 auto;
+  width: 0;
+  height: 100%;
+  min-width: 0;
+  object-fit: contain;
+  image-rendering: pixelated;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.section-arrow {
+  pointer-events: auto;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: clamp(16px, 2vw, 28px);
+  height: clamp(24px, 3vw, 40px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #704025;
+  font-family: Georgia, serif;
+  font-size: clamp(22px, 3vw, 38px);
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 1px #fff1cf;
+  cursor: pointer;
+  transition: color .14s ease, transform .14s ease;
+}
+
+.section-arrow:hover {
+  color: #a45f2d;
+  transform: translateX(2px);
+}
+
+.section-arrow:focus-visible {
+  outline: 2px solid #704025;
+  outline-offset: 1px;
+}
+
+.archive-preview {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.archive-artwork {
+  display: block;
+  width: 84%;
+  height: 100%;
+  object-fit: contain;
+  transform: translateY(clamp(-16px, -1.2vw, -4px));
+  image-rendering: pixelated;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.archive-preview .section-arrow {
+  pointer-events: auto;
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.archive-preview .section-arrow:hover {
+  transform: translate(2px, -50%);
+}
+
+@media (max-width: 700px) {
+  .starter {
+    background-attachment: scroll;
+  }
+}
+
+@media (max-width: 640px) {
+  .home-header {
+    grid-template-columns: minmax(0, 1fr) minmax(130px, 190px);
+    gap: 5px;
+  }
+
+  .home-title-board {
+    width: min(100%, 360px);
+  }
+
+  .home-navbar {
+    grid-column: 1 / -1;
+    width: min(100%, 420px);
+    justify-self: center;
+  }
+
+  .home-profile {
+    grid-column: 2;
+    width: min(100%, 190px);
+  }
+
+  .main-display-panel {
+    width: min(78vw, 130vh);
+    margin: clamp(16px, 3vh, 26px) 0 24px auto;
+  }
+
+  .trials-content {
+    gap: 0;
+  }
+
+  .trials-heading {
+    min-height: 0;
+  }
+
+  .trials-leaf {
+    width: 19px;
+    height: 19px;
+  }
+
+  .start-trials-button {
+    width: clamp(76px, 30%, 120px);
+  }
+
+  .trial-setup-header {
+    top: 5%;
+    width: 86%;
+    gap: 1px;
+    padding-bottom: 2px;
+  }
+
+  .trial-setup-title {
+    gap: 4px;
+    font-size: clamp(12px, 4vw, 16px);
+  }
+
+  .trial-swords-icon {
+    width: clamp(16px, 5vw, 20px);
+    height: clamp(16px, 5vw, 20px);
+  }
+
+  .trial-setup-subtitle {
+    font-size: clamp(8px, 2.2vw, 10px);
+  }
+
+  .trial-configuration {
+    top: 29%;
+    right: 7%;
+    width: 44%;
+  }
+
+  .trial-agent-selection {
+    top: 29%;
+    left: 7%;
+    width: 44%;
+  }
+
+  .agent-selection-heading {
+    gap: 3px;
+    font-size: clamp(9px, 2.8vw, 11px);
+  }
+
+  .agent-selection-header {
+    gap: 3px;
+  }
+
+  .agent-selection-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .agent-select-wrap {
+    margin-top: 2px;
+  }
+
+  .agent-prompt-section {
+    margin-top: 5px;
+  }
+
+  .agent-select {
+    height: clamp(13px, 3.8vw, 18px);
+    min-height: 0;
+    padding: 0 17px 0 3px;
+    font-size: 8px;
+  }
+
+  .agent-select-wrap::after {
+    top: calc(50% + 3px);
+    right: 6px;
+    width: 5px;
+    height: 5px;
+    border-width: 1px;
+  }
+
+  .agent-empty-state {
+    margin-top: 2px;
+    font-size: 7px;
+  }
+
+  .add-agent-button {
+    min-height: 18px;
+    gap: 2px;
+    padding: 1px 3px;
+    font-size: 8px;
+  }
+
+  .configuration-heading {
+    gap: 3px;
+    font-size: clamp(9px, 2.8vw, 11px);
+  }
+
+  .configuration-leaf {
+    width: 12px;
+    height: 12px;
+  }
+
+  .goal-entry-row {
+    margin-top: 2px;
+  }
+
+  .goal-input {
+    height: clamp(52px, 14vw, 68px);
+    min-height: 46px;
+    padding: 4px;
+    font-size: 8px;
+  }
+
+  .difficulty-heading-row {
+    gap: 2px;
+    margin-top: 4px;
+  }
+
+  .difficulty-heading {
+    font-size: 9px;
+  }
+
+  .difficulty-icon {
+    width: 12px;
+    height: 12px;
+  }
+
+  .difficulty-number {
+    width: 38px;
+    padding: 0 1px;
+    font-size: 8px;
+  }
+
+  .difficulty-slider {
+    height: 7px;
+    margin-top: 2px;
+  }
+
+  .difficulty-markers {
+    gap: 1px;
+    margin-top: 2px;
+    font-size: 6px;
+  }
+
+  .trial-go-button {
+    bottom: 8%;
+    width: 32%;
+  }
+
+  .agent-form-backdrop {
+    padding: 12px;
+  }
+
+  .agent-form {
+    gap: 8px;
+    padding: 14px;
+  }
+
+  .agent-form h2 {
+    font-size: 20px;
+  }
+
+  .agent-form-icon {
+    width: 27px;
+    height: 27px;
+  }
+
+  .agent-form label {
+    font-size: 13px;
+  }
+
+  .agent-form input {
+    min-height: 32px;
+  }
+
+  .agents-page-content {
+    inset: 12% 9%;
+  }
+
+  .agents-page-title {
+    margin-bottom: 6px;
+    font-size: 17px;
+  }
+
+  .agents-page-list {
+    gap: 4px;
+  }
+
+  .agents-page-list li {
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    gap: 5px;
+    padding: 3px 5px;
+    font-size: 10px;
+  }
+
+  .agents-page-list img {
+    width: 20px;
+    height: 20px;
+  }
+
+  .agents-page-list small {
+    font-size: 8px;
+  }
+
+  .agents-page-add {
+    margin-top: 6px;
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+}
+
+@media (max-height: 420px) {
+  .starter {
+    padding-block: 6px;
+  }
+
+  .home-header {
+    top: 6px;
+  }
+
+}

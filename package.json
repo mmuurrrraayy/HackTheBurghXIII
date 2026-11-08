@@ -1,0 +1,27 @@
+{
+  "name": "labyrinth-agent-trials",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:backend": "node scripts/run-python.mjs -m backend.dev",
+    "start:backend": "node scripts/run-python.mjs -m backend.main",
+    "test:backend": "node scripts/run-python.mjs -m unittest backend.test_backend",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test:server": "node scripts/run-python.mjs -m unittest backend.test_backend"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}
