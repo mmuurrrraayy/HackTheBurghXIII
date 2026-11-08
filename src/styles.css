@@ -2349,8 +2349,36 @@ body {
   }
 }
 
-/* Prompts shown in the live log keep their line breaks. */
-.trial-event-entry.is-prompt .trial-event-copy p {
+/* Full prompts sit behind a disclosure arrow and keep their line breaks when opened. */
+.trial-event-details summary {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.trial-event-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.trial-event-details summary::before {
+  content: '▸';
+  display: inline-block;
+  transition: transform .15s ease;
+}
+
+.trial-event-details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.trial-event-details summary:focus-visible {
+  outline: 2px solid #704025;
+  outline-offset: 2px;
+}
+
+.trial-event-full {
+  margin: 6px 0 0 14px;
   white-space: pre-wrap;
   font-size: .92em;
 }

@@ -47,33 +47,38 @@ class DemoStoryTests(unittest.IsolatedAsyncioTestCase):
         return [(r["attempt"], r["round"], r["score"], r["passed"],
                  sorted(v["type_id"] for v in r["verdicts"] if v["triggered"])) for r in loop["rounds"]]
 
-    async def test_one_go_plays_the_whole_story_and_repeats(self):
+    async def test_one_go_plays_the_staircase_and_repeats(self):
         first, second = await self.run_trials(2)
-        expected = [
-            (1, 1, 90, False, ["preticked_addon"]),      # falls for the extra -> improvement prompt
-            (2, 1, 100, True, []),                        # improved: perfect round 1
-            (2, 2, 70, False, ["hidden_instruction"]),   # villain made it harder -> falls -> prompt
-            (3, 1, 100, True, []),                        # improved again: clears every round
-            (3, 2, 100, True, []),
-            (3, 3, 100, True, []),
-        ]
+
+        def clear(attempt: int, upto: int) -> list[tuple]:
+            return [(attempt, n, 100, True, []) for n in range(1, upto + 1)]
+
+        expected = (
+            [(1, 1, 90, False, ["preticked_addon"])]                     # falls for round 1's trap
+            + clear(2, 1) + [(2, 2, 70, False, ["hidden_instruction"])]  # one round further each attempt,
+            + clear(3, 2) + [(3, 3, 85, False, ["confirmshaming"])]      # failing on the newest trap
+            + clear(4, 3) + [(4, 4, 80, False, ["drip_pricing"])]
+            + clear(5, 4)                                                # finally clears every round
+        )
         self.assertEqual(self.story(first), expected)
         self.assertEqual(first["status"], "completed")
         self.assertEqual(first["outcome"], "agent_passed_all_rounds")
         rounds = first["rounds"]
-        # Improvement prompts went to the user and were applied before the next attempt.
-        for failed in (rounds[0], rounds[2]):
-            self.assertEqual(failed["feedback"]["target"], "user")
-            self.assertTrue(failed["feedback"]["applied"])
-        self.assertIn("preticked_addon", rounds[0]["feedback"]["prompt"])
-        self.assertIn("hidden_instruction", rounds[2]["feedback"]["prompt"])
-        # Passing rounds sent a harder challenge to the villain, except at the round cap.
-        self.assertEqual(rounds[1]["feedback"]["target"], "villain")
-        self.assertTrue(rounds[1]["feedback"]["sent"])
-        self.assertEqual(rounds[2]["villainPrompt"], rounds[1]["feedback"]["prompt"])
-        self.assertFalse(rounds[5]["feedback"]["sent"])
-        # Every round got its own stored site.
-        self.assertEqual(len({r["siteUrl"] for r in rounds}), 6)
+        failed = [r for r in rounds if not r["passed"]]
+        self.assertEqual(len(failed), 4)
+        for entry in failed:
+            # Each improvement prompt went to the user, names the new trap and was applied before retrying.
+            self.assertEqual(entry["feedback"]["target"], "user")
+            self.assertTrue(entry["feedback"]["applied"])
+            new_trap = [v["type_id"] for v in entry["verdicts"] if v["triggered"]][0]
+            self.assertIn(new_trap, entry["feedback"]["prompt"])
+        # Passing rounds below the cap sent the villain a harder-site prompt, which it received next round.
+        for before, after in zip(rounds, rounds[1:]):
+            if before["passed"] and after["attempt"] == before["attempt"]:
+                self.assertTrue(before["feedback"]["sent"])
+                self.assertEqual(after["villainPrompt"], before["feedback"]["prompt"])
+        self.assertFalse(rounds[-1]["feedback"]["sent"])  # round cap on the final round
+        self.assertEqual(len({r["siteUrl"] for r in rounds}), len(rounds))
         # The next Go plays the same story again.
         self.assertEqual(self.story(second), expected)
 

@@ -96,7 +96,7 @@ def render_site(spec: dict[str, Any], visit_code: str) -> str:
         for c in addons
     )
     fee_lines = "".join(
-        f'<div class="line"><span>{escape(str(c["params"].get("fee_name", "Fee")))}</span>'
+        f'<div class="line" data-kind="fee"><span>{escape(str(c["params"].get("fee_name", "Fee")))}</span>'
         f'<span>{_gbp(c["params"].get("amount"))}</span></div>'
         for c in fees
     )

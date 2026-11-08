@@ -114,6 +114,10 @@ type TrialEvent = {
     title?: string;
     icon?: string;
     tone?: string;
+    fullText?: string;
+    triggered?: boolean;
+    round?: number;
+    attempt?: number;
   };
 };
 
@@ -152,6 +156,7 @@ type ArchiveData = {
 type ArchiveDetail = ArchivedTrial & {
   agentName: string;
   events: TrialEvent[];
+  improvements?: Array<{ label: string; traps: string[]; prompt: string; applied: boolean }>;
 };
 
 type ArchiveSortKey = 'date' | 'score' | 'rounds';
@@ -363,11 +368,15 @@ function loopToTrialView(loop: LoopSummary): { summary: TrialSummary; events: Tr
       tone: round.passed ? 'success' : 'failed',
     });
     const prompt = round.feedback;
-    if (prompt && (prompt.target === 'user' || prompt.sent)) {
+    if (prompt?.target === 'user') {
+      const fellFor = (round.verdicts || []).filter((v) => v.triggered).map((v) => trapName(v.type_id));
       add(`${key}-prompt`, round.finishedAt, {
-        title: prompt.target === 'user' ? 'PROMPT FOR THE USER' : 'PROMPT SENT TO THE VILLAIN',
-        message: prompt.prompt,
-        icon: prompt.target === 'user' ? '✎' : '⚔',
+        title: 'PROMPT FOR THE USER',
+        message: fellFor.length
+          ? `How to stop the agent falling for: ${fellFor.join(', ')}.`
+          : 'How to make the agent\'s run count.',
+        fullText: prompt.prompt,
+        icon: '✎',
         tone: 'prompt',
       });
     }
@@ -1088,24 +1097,26 @@ function App() {
                               [{formatElapsedTime(trialSummary?.startedAt || trialEvent.timestamp, trialEvent.timestamp)}]
                             </time>
                           </div>
-                          <p>{presentation.message}</p>
+                          {trialEvent.detail.fullText ? (
+                            <details className="trial-event-details">
+                              <summary>{presentation.message}</summary>
+                              <p className="trial-event-full">{trialEvent.detail.fullText}</p>
+                            </details>
+                          ) : (
+                            <p>{presentation.message}</p>
+                          )}
                         </div>
                       </article>
                     );
                   })}
-                  {activeLoop && activeLoop.status !== 'running' && activeLoop.feedback && (
+                  {activeLoop && activeLoop.status !== 'running' && activeLoop.feedback?.target === 'user'
+                    && !activeLoop.feedback.applied && (
                     <section aria-label="Improvement prompt" className="loop-feedback">
-                      <h2>
-                        {activeLoop.feedback.target === 'user'
-                          ? 'Improve your agent'
-                          : activeLoop.feedback.sent
-                            ? 'Sent to the villain'
-                            : 'Next challenge for the villain'}
-                      </h2>
-                      {activeLoop.feedback.target === 'villain' && !activeLoop.feedback.sent && (
-                        <p>Round cap reached, so this was not sent. Start another trial to keep going.</p>
-                      )}
-                      <textarea aria-label="Feedback prompt" readOnly rows={8} value={activeLoop.feedback.prompt} />
+                      <h2>Improve your agent</h2>
+                      <details className="trial-event-details">
+                        <summary>Show the full improvement prompt</summary>
+                        <textarea aria-label="Feedback prompt" readOnly rows={8} value={activeLoop.feedback.prompt} />
+                      </details>
                       <button
                         className="loop-copy-button"
                         onClick={() => {
@@ -1534,23 +1545,31 @@ function App() {
                       ) : (
                         <ul className="archive-detail-events">
                           {detailTrapEvents.map((event) => {
-                            const triggered = event.detail.accepted_upsell === true
+                            const triggered = event.detail.triggered === true
+                              || event.detail.accepted_upsell === true
                               || event.detail.followed_prompt_injection === true
                               || event.detail.interacted_with_scam === true
                               || event.detail.stuck_in_navigation_loop === true;
+                            const avoided = event.detail.triggered === false;
                             return (
                               <li key={event.id}>
                                 <strong>{event.detail.category || event.detail.reason || event.type}</strong>
                                 <span>{event.timestamp ? new Date(event.timestamp).toLocaleString() : '—'}</span>
-                                <span>Round: — · Severity: {event.detail.severity ?? '—'}</span>
+                                <span>
+                                  Round: {event.detail.round
+                                    ? `${event.detail.round}${event.detail.attempt ? ` (attempt ${event.detail.attempt})` : ''}`
+                                    : '—'} · Severity: {event.detail.severity ?? '—'}
+                                </span>
                                 <p>{event.detail.description || event.detail.message || 'No description was recorded.'}</p>
-                                <p>
-                                  {event.detail.action
-                                    ? `Defender action: ${event.detail.action.action || '—'} ${event.detail.action.element_id || event.detail.action.direction || ''}`
-                                    : 'Defender action: Not recorded for this event.'}
-                                </p>
-                                <span className={`archives-outcome is-${event.type === 'error' || triggered ? 'failed' : 'pending'}`}>
-                                  {event.type === 'error' ? 'Fault recorded' : triggered ? 'Triggered' : 'Outcome not recorded'}
+                                {event.detail.triggered === undefined && (
+                                  <p>
+                                    {event.detail.action
+                                      ? `Defender action: ${event.detail.action.action || '—'} ${event.detail.action.element_id || event.detail.action.direction || ''}`
+                                      : 'Defender action: Not recorded for this event.'}
+                                  </p>
+                                )}
+                                <span className={`archives-outcome is-${event.type === 'error' || triggered ? 'failed' : avoided ? 'success' : 'pending'}`}>
+                                  {event.type === 'error' ? 'Fault recorded' : triggered ? 'Triggered' : avoided ? 'Avoided' : 'Outcome not recorded'}
                                 </span>
                               </li>
                             );
@@ -1576,7 +1595,9 @@ function App() {
                           {detailDefenderEvents.map((event) => (
                             <li key={event.id}>
                               <time dateTime={event.timestamp}>{event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : '—'}</time>
-                              {' '}{event.detail.action?.action || 'Action'}{event.detail.action?.element_id ? ` · ${event.detail.action.element_id}` : ''}
+                              {' '}{event.detail.action
+                                ? `${event.detail.action.action || 'Action'}${event.detail.action.element_id ? ` · ${event.detail.action.element_id}` : ''}`
+                                : event.detail.message || 'Action'}
                             </li>
                           ))}
                         </ol>
@@ -1584,7 +1605,23 @@ function App() {
                     </section>
                     <section className="archive-detail-section">
                       <h3>Improvement History</h3>
-                      <p>No improvements applied. The backend has no recorded agent modifications or recommendations for this trial.</p>
+                      {archiveDetail.improvements?.length ? (
+                        <ol className="archive-detail-improvements">
+                          {archiveDetail.improvements.map((improvement) => (
+                            <li key={improvement.label}>
+                              <strong>{improvement.label}</strong>
+                              {' · '}{improvement.traps.join(', ') || 'Run could not be verified'}
+                              {' · '}{improvement.applied ? 'Applied' : 'Not yet applied'}
+                              <details className="trial-event-details">
+                                <summary>Show the improvement prompt</summary>
+                                <p className="trial-event-full">{improvement.prompt}</p>
+                              </details>
+                            </li>
+                          ))}
+                        </ol>
+                      ) : (
+                        <p>No improvements applied. The backend has no recorded agent modifications or recommendations for this trial.</p>
+                      )}
                     </section>
                   </>
                 ) : null}

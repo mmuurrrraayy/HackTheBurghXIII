@@ -48,7 +48,8 @@ class AppConfig:
     run_max_duration_ms: int = 600_000
     villain_dify_api_key: str = ""
     demo_mode: bool = False  # pretend villain and pretend agent for showcasing the loop (no Dify needed)
-    demo_attempts: int = 3  # demo: fail -> improve -> perfect, harder, fail -> improve -> clear every round
+    demo_rounds: int = 4  # demo: one new trap per round (see backend/demo_villain.py)
+    demo_attempts: int = 5  # demo: each attempt gets one round further, the last clears every round
     demo_pause_s: float = 3.0  # demo: pause before re-running with the improvement applied
     villain_dify_api_base_url: str = ""  # empty: same Dify site as the agent (dify_api_base_url)
     loop_max_rounds: int = 3

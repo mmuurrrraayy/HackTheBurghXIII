@@ -13,7 +13,9 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .config import AppConfig
-from .archives import archive_summary, archive_trial, csv_filename, export_archives_csv, trial_details
+from .archives import (
+    archive_loop, archive_summary, archive_trial, csv_filename, export_archives_csv, loop_details, trial_details,
+)
 from .demo_agent import DemoAgent
 from .demo_villain import DemoVillain
 from .dify import DifyAdapter, DifyConfig
@@ -180,7 +182,7 @@ def create_app(
     run_store = RunStore(Path(config.data_directory) / "runs")
     loop_runner = TrapLoopRunner(
         store, run_store, site_storage, get_loop_agent_client, get_villain_client,
-        config.loop_max_rounds, config.run_max_duration_ms,
+        config.demo_rounds if config.demo_mode else config.loop_max_rounds, config.run_max_duration_ms,
         max_attempts=config.demo_attempts if config.demo_mode else 1,
         attempt_pause_s=config.demo_pause_s,
     )
@@ -270,6 +272,15 @@ def create_app(
     async def list_agents():
         return {"agents": store.list_agents()}
 
+    def loops_for_agent(agent_id: str) -> list[dict[str, Any]]:
+        """Finished trial loops for an agent, newest first (running ones join Archives when they end)."""
+        return sorted(
+            (loop for loop in store.list_loops()
+             if loop.get("agentId") == agent_id and loop.get("status") in {"completed", "failed"}),
+            key=lambda loop: loop.get("startedAt", ""),
+            reverse=True,
+        )
+
     @app.get("/api/agents/{agent_id}/archives/export")
     async def export_agent_archives(agent_id: str):
         validate_record_id(agent_id, "agent")
@@ -281,7 +292,7 @@ def create_app(
             key=lambda trial: trial.get("startedAt", ""),
             reverse=True,
         )
-        content = export_archives_csv(agent, trials)
+        content = export_archives_csv(agent, trials, loops_for_agent(agent_id))
         filename = csv_filename(agent["name"])
         return Response(
             content=content,
@@ -295,15 +306,17 @@ def create_app(
         agent = store.get_agent(agent_id)
         if not agent:
             raise AppError(404, "Agent was not found.", "AGENT_NOT_FOUND")
-        trials = sorted(
-            store.list_trials_for_agent(agent_id),
-            key=lambda trial: trial.get("startedAt", ""),
+        trials = store.list_trials_for_agent(agent_id)
+        loops = loops_for_agent(agent_id)
+        records = sorted(
+            [archive_trial(trial) for trial in trials] + [archive_loop(loop) for loop in loops],
+            key=lambda record: record.get("startedAt") or "",
             reverse=True,
         )
         return {
             "agent": {"id": agent["id"], "name": agent["name"]},
-            "summary": archive_summary(trials),
-            "trials": [archive_trial(trial) for trial in trials],
+            "summary": archive_summary(trials, loops),
+            "trials": records,
         }
 
     @app.post("/api/agents")
@@ -430,6 +443,12 @@ def create_app(
     async def get_trial(trial_id: str, details: bool = Query(default=False)):
         validate_record_id(trial_id, "trial")
         trial = store.get_trial(trial_id)
+        loop = None if trial or not details else store.get_loop(trial_id)
+        if loop:  # Archives opens loop records through the same detail route
+            agent = store.get_agent(loop.get("agentId", ""))
+            if not agent:
+                raise AppError(404, "Agent was not found.", "AGENT_NOT_FOUND")
+            return {"trial": loop_details(loop, agent)}
         if not trial:
             raise AppError(404, "Trial was not found.", "TRIAL_NOT_FOUND")
         if details:
