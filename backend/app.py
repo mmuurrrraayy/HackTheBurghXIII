@@ -7,12 +7,14 @@ from typing import Any, Callable
 
 from fastapi import Body, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import AppConfig
 from .dify import DifyAdapter, DifyConfig
 from .errors import AppError
+from .runs import RunStore, create_runs_router
 from .safety import GoalSafetyClassifier, GoalSafetyService, OpenAICompatibleClassifier, SafetyResult
 from .storage import JsonStore
 from .trials import AgentClient, TrialRunner, to_summary
@@ -97,6 +99,12 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(title="Labyrinth Backend", docs_url=None, redoc_url=None)
     app.add_middleware(RequestSizeLimitMiddleware, maximum_bytes=32 * 1024)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[config.site_base_url],
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type"],
+    )
     adapter_factory = dify_factory or (
         lambda: DifyAdapter(DifyConfig(config.dify_api_key, config.dify_api_base_url, config.dify_timeout_ms))
     )
@@ -140,6 +148,8 @@ def create_app(
             status_code=400,
             content={"error": {"code": "INVALID_JSON", "message": "Request body must be valid JSON."}},
         )
+
+    app.include_router(create_runs_router(config, RunStore(Path(config.data_directory) / "runs")))
 
     @app.get("/health")
     @app.get("/api/health")

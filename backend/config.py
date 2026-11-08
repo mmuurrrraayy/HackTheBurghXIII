@@ -43,6 +43,9 @@ class AppConfig:
     trial_action_limit: int = 12
     trial_time_limit_ms: int = 180_000
     data_directory: str = "data"
+    site_base_url: str = "http://localhost:5173"
+    api_base_url: str = "http://127.0.0.1:3001"
+    run_max_duration_ms: int = 600_000
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -65,4 +68,11 @@ class AppConfig:
             trial_action_limit=_positive_int("TRIAL_ACTION_LIMIT", 12),
             trial_time_limit_ms=_positive_int("TRIAL_TIME_LIMIT_MS", 180_000),
             data_directory=os.getenv("LABYRINTH_DATA_DIR") or "data",
+            site_base_url=_validated_url(
+                "SITE_BASE_URL", os.getenv("SITE_BASE_URL", ""), "http://localhost:5173"
+            ),
+            api_base_url=_validated_url(
+                "API_BASE_URL", os.getenv("API_BASE_URL", ""), "http://127.0.0.1:3001"
+            ),
+            run_max_duration_ms=_positive_int("RUN_MAX_DURATION_MS", 600_000),
         )
