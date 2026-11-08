@@ -1,4 +1,6 @@
 import asyncio
+import csv
+import io
 import json
 import tempfile
 import unittest
@@ -383,6 +385,129 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.post(f"/api/agents/{agent['id']}/test")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["usable"])
+
+    async def test_archives_are_agent_scoped_and_summarize_recorded_results(self):
+        agent = await self.register_agent()
+        other_agent = self.store.add_agent({
+            "id": "agent-other",
+            "name": "Other Agent",
+            "provider": "dify",
+            "createdAt": "2026-01-01T00:00:00Z",
+        })
+        self.store.save_trial(make_trial(
+            id="trial-passed",
+            agentId=agent["id"],
+            status="completed",
+            startedAt="2026-01-02T00:00:00Z",
+            score=100,
+            totalRounds=4,
+            evaluation={
+                "outcome": "success",
+                "task_completed": True,
+                "maximum_difficulty": 70,
+            },
+        ))
+        self.store.save_trial(make_trial(
+            id="trial-failed",
+            agentId=agent["id"],
+            status="failed",
+            startedAt="2026-01-03T00:00:00Z",
+            score=50,
+            totalRounds=2,
+            evaluation={
+                "outcome": "failure",
+                "accepted_upsell": True,
+                "maximum_difficulty": 40,
+            },
+        ))
+        self.store.save_trial(make_trial(
+            id="trial-other",
+            agentId=other_agent["id"],
+            status="completed",
+            score=0,
+            evaluation={"outcome": "failure"},
+        ))
+
+        response = await self.client.get(f"/api/agents/{agent['id']}/archives")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual([trial["id"] for trial in body["trials"]], ["trial-failed", "trial-passed"])
+        self.assertEqual(body["summary"], {
+            "totalTrials": 2,
+            "passedTrials": 1,
+            "failedTrials": 1,
+            "averageScore": 75,
+            "passRate": 50,
+            "highestRound": 4,
+        })
+
+    async def test_archive_details_and_csv_exclude_secrets_and_escape_formula_text(self):
+        agent = await self.register_agent()
+        goal = '=HYPERLINK("https://example.invalid","unsafe"), "quoted"\nsecond line'
+        trial = make_trial(
+            id="trial-export",
+            agentId=agent["id"],
+            status="completed",
+            goal=goal,
+            score=82,
+            agentPrompt="private prompt",
+            conversationId="private conversation",
+            apiKey="private credential",
+            events=[
+                {
+                    "id": "event-trap",
+                    "type": "challenge",
+                    "timestamp": "2026-01-01T00:00:01Z",
+                    "detail": {
+                        "category": "deceptive_upselling",
+                        "accepted_upsell": True,
+                        "action": {
+                            "action": "type",
+                            "text": "private typed data",
+                        },
+                    },
+                },
+            ],
+            evaluation={"outcome": "failure", "accepted_upsell": True},
+        )
+        self.store.save_trial(trial)
+
+        details = await self.client.get(f"/api/trials/{trial['id']}?details=true")
+        self.assertEqual(details.status_code, 200)
+        serialized = json.dumps(details.json())
+        self.assertNotIn("private prompt", serialized)
+        self.assertNotIn("private conversation", serialized)
+        self.assertNotIn("private credential", serialized)
+        self.assertNotIn("private typed data", serialized)
+
+        exported = await self.client.get(f"/api/agents/{agent['id']}/archives/export")
+        self.assertEqual(exported.status_code, 200)
+        self.assertIn("attachment; filename=", exported.headers["content-disposition"])
+        self.assertNotIn("private prompt", exported.text)
+        self.assertNotIn("private conversation", exported.text)
+        self.assertNotIn("private credential", exported.text)
+        self.assertNotIn("private typed data", exported.text)
+        rows = list(csv.reader(io.StringIO(exported.text)))
+        self.assertEqual(len(rows[0]), 17)
+        self.assertEqual(rows[1][1], "trial-export")
+        self.assertEqual(rows[1][3], "'" + goal)
+        self.assertEqual(rows[1][10], "Triggered")
+        self.assertEqual((await self.client.get("/api/agents/agent-other/archives/export")).status_code, 404)
+
+    async def test_archive_export_with_no_trials_returns_csv_header(self):
+        agent = await self.register_agent()
+
+        response = await self.client.get(f"/api/agents/{agent['id']}/archives/export")
+
+        self.assertEqual(response.status_code, 200)
+        rows = list(csv.reader(io.StringIO(response.text)))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(len(rows[0]), 17)
+        invalid_agent = await self.client.get("/api/agents/invalid.id/archives")
+        invalid_trial = await self.client.get("/api/trials/invalid.id?details=true")
+        self.assertEqual(invalid_agent.status_code, 400)
+        self.assertEqual(invalid_trial.status_code, 400)
 
     async def test_request_body_size_is_limited(self):
         response = await self.client.post(
