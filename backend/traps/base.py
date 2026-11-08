@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+# Means "the agent proved it opened the page" (visit code echoed), not "the agent saw this trap".
 EXPOSURE_EVENT = "trap_exposed"
 
 
