@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:backend": "node scripts/run-python.mjs -m backend.dev",
+    "dev:demo": "node scripts/run-python.mjs -m backend.demo",
     "start:backend": "node scripts/run-python.mjs -m backend.main",
     "test:backend": "node scripts/run-python.mjs -m unittest backend.test_backend",
     "build": "tsc -b && vite build",

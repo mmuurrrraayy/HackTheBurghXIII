@@ -47,6 +47,9 @@ class AppConfig:
     api_base_url: str = "http://127.0.0.1:3001"
     run_max_duration_ms: int = 600_000
     villain_dify_api_key: str = ""
+    demo_mode: bool = False  # pretend villain and pretend agent for showcasing the loop (no Dify needed)
+    demo_attempts: int = 3  # demo: fail -> improve -> perfect, harder, fail -> improve -> clear every round
+    demo_pause_s: float = 3.0  # demo: pause before re-running with the improvement applied
     villain_dify_api_base_url: str = ""  # empty: same Dify site as the agent (dify_api_base_url)
     loop_max_rounds: int = 3
     loop_agent_timeout_ms: int = 300_000
@@ -85,6 +88,7 @@ class AppConfig:
             run_max_duration_ms=_positive_int("RUN_MAX_DURATION_MS", 600_000),
             # villain.py reads DIFY_KEY, so accept it as a fallback for the villain app's key.
             villain_dify_api_key=(os.getenv("VILLAIN_DIFY_API_KEY") or os.getenv("DIFY_KEY") or "").strip(),
+            demo_mode=os.getenv("DEMO_MODE", "").strip().lower() in {"1", "true", "yes", "on"},
             villain_dify_api_base_url=_validated_url(
                 "DIFY_API_VILLAIN_URL",
                 os.getenv("DIFY_API_VILLAIN_URL") or os.getenv("VILLAIN_DIFY_API_BASE_URL") or "",

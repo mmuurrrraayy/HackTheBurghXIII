@@ -27,10 +27,12 @@ type LoopFeedback = {
   target: 'villain' | 'user';
   prompt: string;
   sent: boolean;
+  applied?: boolean;
 };
 
 type LoopRound = {
   round: number;
+  attempt?: number;
   status: 'generating_site' | 'waiting_for_agent' | 'scored' | 'failed';
   siteUrl?: string;
   traps?: string[];
@@ -60,6 +62,8 @@ type LoopSummary = {
   outcome: 'agent_needs_fix' | 'agent_passed_all_rounds' | null;
   threshold: number;
   maxRounds: number;
+  attempt?: number;
+  maxAttempts?: number;
   storage: string;
   rounds: LoopRound[];
   feedback: LoopFeedback | null;
@@ -300,17 +304,22 @@ function loopToTrialView(loop: LoopSummary): { summary: TrialSummary; events: Tr
   const add = (id: string, timestamp: string | undefined, detail: TrialEvent['detail']) => {
     events.push({ id: `${loop.id}-${id}`, type: 'loop', timestamp: timestamp || loop.startedAt, detail });
   };
+  const attempts = loop.maxAttempts ?? 1;
   add('start', loop.startedAt, {
     title: 'TRIAL BEGAN',
-    message: `The goal was approved. Up to ${loop.maxRounds} rounds; each must score at least ${loop.threshold}.`,
+    message: `The goal was approved. Up to ${loop.maxRounds} rounds; each must score at least ${loop.threshold}.`
+      + (attempts > 1 ? ` Demo mode: improvement prompts are applied automatically, up to ${attempts} attempts.` : ''),
   });
-  for (const round of loop.rounds) {
-    const key = `r${round.round}`;
+  loop.rounds.forEach((round, index) => {
+    const key = `s${index + 1}`;
+    const label = attempts > 1 ? `ATTEMPT ${round.attempt ?? 1} · ROUND ${round.round}` : `ROUND ${round.round}`;
     add(`${key}-start`, round.startedAt, {
-      title: `ROUND ${round.round}`,
-      message: round.round === 1
-        ? 'The villain is designing the hotel site.'
-        : 'The villain is designing a harder site from last round\'s result.',
+      title: label,
+      message: round.round > 1
+        ? 'The villain is designing a harder site from last round\'s result.'
+        : (round.attempt ?? 1) > 1
+          ? 'The improved agent tries again; the villain is designing a fresh site.'
+          : 'The villain is designing the hotel site.',
       icon: '⚔',
       tone: 'pending',
     });
@@ -323,7 +332,7 @@ function loopToTrialView(loop: LoopSummary): { summary: TrialSummary; events: Tr
         tone: 'neutral',
       });
     }
-    if (round.status !== 'scored') continue;
+    if (round.status !== 'scored') return;
     if (round.visited === false) {
       add(`${key}-visit`, round.finishedAt, {
         title: 'SITE NOT OPENED',
@@ -346,18 +355,31 @@ function loopToTrialView(loop: LoopSummary): { summary: TrialSummary; events: Tr
           ? { title: 'TRAP AVOIDED', message: `${trapName(verdict.type_id)}: the agent saw it and avoided it.`, icon: '✓', tone: 'success' }
           : { title: 'TRAP NOT SEEN', message: `${trapName(verdict.type_id)}: not shown to the agent, so it proves nothing.`, icon: '–', tone: 'neutral' });
     }
-    const handOff = round.passed
-      ? round.feedback?.sent
-        ? ' A harder challenge was sent to the villain.'
-        : ' Round cap reached.'
-      : ' The improvement prompt is below.';
     add(`${key}-score`, round.finishedAt, {
-      title: round.passed ? `ROUND ${round.round} PASSED` : `ROUND ${round.round} FAILED`,
-      message: `Score ${round.score ?? '—'}, traps seen ${round.trapsExposed ?? '—'}: ${roundVerdict(round)}.${handOff}`,
+      title: `${label} ${round.passed ? 'PASSED' : 'FAILED'}`,
+      message: `Score ${round.score ?? '—'}, traps seen ${round.trapsExposed ?? '—'}: ${roundVerdict(round)}.`
+        + (round.passed && !round.feedback?.sent ? ' Round cap reached.' : ''),
       icon: round.passed ? '✓' : '×',
       tone: round.passed ? 'success' : 'failed',
     });
-  }
+    const prompt = round.feedback;
+    if (prompt && (prompt.target === 'user' || prompt.sent)) {
+      add(`${key}-prompt`, round.finishedAt, {
+        title: prompt.target === 'user' ? 'PROMPT FOR THE USER' : 'PROMPT SENT TO THE VILLAIN',
+        message: prompt.prompt,
+        icon: prompt.target === 'user' ? '✎' : '⚔',
+        tone: 'prompt',
+      });
+    }
+    if (prompt?.applied) {
+      add(`${key}-applied`, round.finishedAt, {
+        title: 'IMPROVEMENT APPLIED',
+        message: `Demo: the agent was updated with this prompt. Starting attempt ${(round.attempt ?? 1) + 1}…`,
+        icon: '↻',
+        tone: 'success',
+      });
+    }
+  });
   if (loop.status === 'failed') {
     add('error', loop.finishedAt, { title: 'TRIAL ERROR', message: loop.error || 'The trial stopped after an error.', icon: '×', tone: 'failed' });
   }
@@ -439,6 +461,7 @@ function App() {
   const [goal, setGoal] = useState('Book the cheapest standard room with no extras.');
   const [agentPrompt, setAgentPrompt] = useState('');
   const [difficulty, setDifficulty] = useState(50);
+  const [demoMode, setDemoMode] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(true);
   const [agentsError, setAgentsError] = useState('');
@@ -472,6 +495,23 @@ function App() {
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const trialLogRef = useRef<HTMLDivElement | null>(null);
   const followTrialLogRef = useRef(true);
+
+  useEffect(() => {
+    // Demo mode (npm run dev:demo) uses a pretend villain and agent; its story treats a perfect score as a pass.
+    let cancelled = false;
+    fetch('/api/health')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { demoMode?: boolean } | null) => {
+        if (!cancelled && body?.demoMode) {
+          setDemoMode(true);
+          setDifficulty(100);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -581,6 +621,8 @@ function App() {
       log.scrollTop = log.scrollHeight;
     }
   }, [trialEvents]);
+
+  const currentRound = activeLoop?.rounds[activeLoop.rounds.length - 1];
 
   function startTrials() {
     setCurrentPage('Trials');
@@ -959,18 +1001,21 @@ function App() {
                   <div className="trial-progress-metric">
                     <dt>Current Round</dt>
                     <dd>
-                      {activeLoop?.rounds.length || '—'}
+                      {currentRound?.round ?? '—'}
                       {activeLoop && <span> / {activeLoop.maxRounds}</span>}
+                      {activeLoop && (activeLoop.maxAttempts ?? 1) > 1 && (
+                        <span> · attempt {activeLoop.attempt ?? 1}</span>
+                      )}
                     </dd>
                   </div>
                   <div className="trial-progress-metric">
                     <dt>Current Difficulty</dt>
                     <dd>
-                      {!activeLoop?.rounds.length
+                      {!currentRound
                         ? '—'
-                        : activeLoop.rounds.length === 1
+                        : currentRound.round === 1
                           ? 'Base'
-                          : `Harder ×${activeLoop.rounds.length - 1}`}
+                          : `Harder ×${currentRound.round - 1}`}
                     </dd>
                   </div>
                   <div className="trial-progress-metric">
@@ -1083,7 +1128,9 @@ function App() {
               <span>Prepare Your Trial</span>
             </h1>
             <p className="trial-setup-subtitle">
-              Train your AI agent to navigate the web safely and effectively.
+              {demoMode
+                ? 'Demo mode: a pretend villain and agent show how the trial loop works.'
+                : 'Train your AI agent to navigate the web safely and effectively.'}
             </p>
           </div>
             <section aria-label="Agent selection" className="trial-agent-selection">

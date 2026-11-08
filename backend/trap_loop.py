@@ -135,6 +135,8 @@ class TrapLoopRunner:
         get_villain_client: Callable[[], ChatClient],
         max_rounds: int,
         run_max_duration_ms: int,
+        max_attempts: int = 1,
+        attempt_pause_s: float = 0.0,
     ):
         self.store = store
         self.run_store = run_store
@@ -143,6 +145,9 @@ class TrapLoopRunner:
         self.get_villain_client = get_villain_client
         self.max_rounds = max_rounds
         self.run_max_duration_ms = run_max_duration_ms
+        # More than one attempt only makes sense when the improvement prompt is applied automatically (demo mode).
+        self.max_attempts = max(1, max_attempts)
+        self.attempt_pause_s = attempt_pause_s
         self._tasks: set[asyncio.Task] = set()
 
     @property
@@ -161,6 +166,8 @@ class TrapLoopRunner:
             "agentPrompt": agent_prompt or None,
             "threshold": threshold,
             "maxRounds": self.max_rounds,
+            "attempt": 1,
+            "maxAttempts": self.max_attempts,
             "status": "running",
             "outcome": None,
             "startedAt": _now(),
@@ -214,85 +221,16 @@ class TrapLoopRunner:
                        "VILLAIN_UNUSABLE_SPEC")
 
     async def _run(self, loop: dict[str, Any]) -> None:
-        last_result = "none"
         try:
-            for round_no in range(1, self.max_rounds + 1):
-                entry: dict[str, Any] = {"round": round_no, "status": "generating_site", "startedAt": _now(),
-                                         "villainPrompt": last_result}
-                loop["rounds"].append(entry)
-                await self._save(loop)
-
-                payload, (spec, run) = await self._villain_spec(loop, round_no, last_result)
-                with self.run_store.lock:
-                    self.run_store.save(run)
-                visit_code = f"SE-{secrets.token_hex(3).upper()}"
-                entry["runId"] = run.run_id
-                entry["files"] = {
-                    "spec": await self.storage.put(
-                        round_key(loop["id"], round_no, "spec.json"),
-                        json.dumps({"villain_request": payload, "spec": spec, "served_spec": run.spec,
-                                    "visit_code": visit_code}, indent=2, ensure_ascii=False),
-                    ),
-                    "site": await self.storage.put(
-                        round_key(loop["id"], round_no, "site/index.html"), render_site(run.spec, visit_code)
-                    ),
-                }
-                entry["siteUrl"] = await self.storage.link(round_key(loop["id"], round_no, "site/index.html"))
-                entry["traps"] = [c["type"] for c in run.spec.get("components", [])]
-                entry["status"] = "waiting_for_agent"
-                await self._save(loop)
-
-                agent = self.get_agent_client(loop["agentId"])
-                reply = await agent.chat(
-                    build_agent_message(loop["goal"], loop["agentPrompt"], entry["siteUrl"]),
-                    f"labyrinth-loop-{loop['id']}-r{round_no}",
-                )
-                answer = reply["answer"]
-                with self.run_store.lock:
-                    facts = reply_to_events(run, answer, visit_code)
-                    self.run_store.save(run)
-                result = {**run_result(run), **facts, "round": round_no, "agent_reply": answer[:REPLY_KEEP_CHARS]}
-                entry["files"]["result"] = await self.storage.put(
-                    round_key(loop["id"], round_no, "result.json"), json.dumps(result, indent=2, ensure_ascii=False)
-                )
-                entry["files"]["resultCsv"] = await self.storage.put(
-                    round_key(loop["id"], round_no, "result.csv"), feedback.rows_to_csv(feedback.to_rows(result))
-                )
-                # Without the visit code and a readable booking summary, a high score proves nothing.
-                passed = feedback.passes(result, loop["threshold"]) and facts["visited"] and facts["reply_parsed"]
-                entry.update({
-                    "score": result["score"],
-                    "trapsExposed": result["traps_exposed"],
-                    "visited": facts["visited"],
-                    "replyParsed": facts["reply_parsed"],
-                    "passed": passed,
-                    "verdicts": [
-                        {k: v.get(k) for k in ("type_id", "instance_id", "exposed", "triggered", "severity")}
-                        for v in result["verdicts"]
-                    ],
-                    "agentReply": answer[:REPLY_KEEP_CHARS],
-                })
-
-                if passed:
-                    last_result = feedback.harder_prompt(result)
-                    more_rounds = round_no < self.max_rounds
-                    entry["feedback"] = {"target": "villain", "prompt": last_result, "sent": more_rounds}
-                else:
-                    entry["feedback"] = {"target": "user",
-                                         "prompt": feedback.fix_prompt(result, reply_problems(facts)), "sent": True}
-                entry["files"]["feedback"] = await self.storage.put(
-                    round_key(loop["id"], round_no, "feedback.txt"), entry["feedback"]["prompt"]
-                )
-                entry["status"] = "scored"
-                entry["finishedAt"] = _now()
-                loop["feedback"] = entry["feedback"]
-
-                if not passed:
-                    loop["outcome"] = "agent_needs_fix"
+            for attempt in range(1, self.max_attempts + 1):
+                loop["attempt"] = attempt
+                loop["outcome"] = await self._attempt(loop, attempt)
+                if loop["outcome"] == "agent_passed_all_rounds" or attempt == self.max_attempts:
                     break
-                if round_no == self.max_rounds:
-                    loop["outcome"] = "agent_passed_all_rounds"
+                # Demo mode: the improvement prompt is applied to the agent and the trial runs again.
+                loop["rounds"][-1]["feedback"]["applied"] = True
                 await self._save(loop)
+                await asyncio.sleep(self.attempt_pause_s)
             loop["status"] = "completed"
         except Exception as error:
             message = error.message if isinstance(error, AppError) else "Unexpected error while running the trial loop."
@@ -304,3 +242,83 @@ class TrapLoopRunner:
                 loop["rounds"][-1]["status"] = "failed"
         loop["finishedAt"] = _now()
         await self._save(loop)
+
+    async def _attempt(self, loop: dict[str, Any], attempt: int) -> str:
+        """Rounds 1..max_rounds on fresh sites; returns the attempt's outcome."""
+        last_result = "none"
+        for round_no in range(1, self.max_rounds + 1):
+            step = len(loop["rounds"]) + 1  # unique across attempts, for storage paths and agent sessions
+            entry: dict[str, Any] = {"round": round_no, "attempt": attempt, "status": "generating_site",
+                                     "startedAt": _now(), "villainPrompt": last_result}
+            loop["rounds"].append(entry)
+            await self._save(loop)
+
+            payload, (spec, run) = await self._villain_spec(loop, round_no, last_result)
+            with self.run_store.lock:
+                self.run_store.save(run)
+            visit_code = f"SE-{secrets.token_hex(3).upper()}"
+            entry["runId"] = run.run_id
+            entry["files"] = {
+                "spec": await self.storage.put(
+                    round_key(loop["id"], step, "spec.json"),
+                    json.dumps({"villain_request": payload, "spec": spec, "served_spec": run.spec,
+                                "visit_code": visit_code}, indent=2, ensure_ascii=False),
+                ),
+                "site": await self.storage.put(
+                    round_key(loop["id"], step, "site/index.html"), render_site(run.spec, visit_code)
+                ),
+            }
+            entry["siteUrl"] = await self.storage.link(round_key(loop["id"], step, "site/index.html"))
+            entry["traps"] = [c["type"] for c in run.spec.get("components", [])]
+            entry["status"] = "waiting_for_agent"
+            await self._save(loop)
+
+            agent = self.get_agent_client(loop["agentId"])
+            reply = await agent.chat(
+                build_agent_message(loop["goal"], loop["agentPrompt"], entry["siteUrl"]),
+                f"labyrinth-loop-{loop['id']}-r{step}",
+            )
+            answer = reply["answer"]
+            with self.run_store.lock:
+                facts = reply_to_events(run, answer, visit_code)
+                self.run_store.save(run)
+            result = {**run_result(run), **facts, "round": round_no, "agent_reply": answer[:REPLY_KEEP_CHARS]}
+            entry["files"]["result"] = await self.storage.put(
+                round_key(loop["id"], step, "result.json"), json.dumps(result, indent=2, ensure_ascii=False)
+            )
+            entry["files"]["resultCsv"] = await self.storage.put(
+                round_key(loop["id"], step, "result.csv"), feedback.rows_to_csv(feedback.to_rows(result))
+            )
+            # Without the visit code and a readable booking summary, a high score proves nothing.
+            passed = feedback.passes(result, loop["threshold"]) and facts["visited"] and facts["reply_parsed"]
+            entry.update({
+                "score": result["score"],
+                "trapsExposed": result["traps_exposed"],
+                "visited": facts["visited"],
+                "replyParsed": facts["reply_parsed"],
+                "passed": passed,
+                "verdicts": [
+                    {k: v.get(k) for k in ("type_id", "instance_id", "exposed", "triggered", "severity")}
+                    for v in result["verdicts"]
+                ],
+                "agentReply": answer[:REPLY_KEEP_CHARS],
+            })
+
+            if passed:
+                last_result = feedback.harder_prompt(result)
+                more_rounds = round_no < self.max_rounds
+                entry["feedback"] = {"target": "villain", "prompt": last_result, "sent": more_rounds}
+            else:
+                entry["feedback"] = {"target": "user",
+                                     "prompt": feedback.fix_prompt(result, reply_problems(facts)), "sent": True}
+            entry["files"]["feedback"] = await self.storage.put(
+                round_key(loop["id"], step, "feedback.txt"), entry["feedback"]["prompt"]
+            )
+            entry["status"] = "scored"
+            entry["finishedAt"] = _now()
+            loop["feedback"] = entry["feedback"]
+
+            await self._save(loop)
+            if not passed:
+                return "agent_needs_fix"
+        return "agent_passed_all_rounds"

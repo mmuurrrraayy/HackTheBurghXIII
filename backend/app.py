@@ -14,6 +14,8 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import AppConfig
 from .archives import archive_summary, archive_trial, csv_filename, export_archives_csv, trial_details
+from .demo_agent import DemoAgent
+from .demo_villain import DemoVillain
 from .dify import DifyAdapter, DifyConfig
 from .errors import AppError
 from .runs import RunStore, create_runs_router
@@ -140,12 +142,16 @@ def create_app(
     # timeout and a larger stream allowance than the step-by-step trial calls.
     loop_stream_bytes = 1024 * 1024
 
+    demo_agent = DemoAgent(store)
+
     def get_loop_agent_client(agent_id: str) -> ChatClient:
         if not store.get_agent(agent_id):
             raise AppError(404, "Selected agent was not found.", "AGENT_NOT_FOUND")
-        ensure_dify_configured(config)
         if agent_client_factory:
             return agent_client_factory(agent_id)
+        if config.demo_mode:
+            return demo_agent
+        ensure_dify_configured(config)
         return DifyAdapter(DifyConfig(
             config.dify_api_key, config.dify_api_base_url, config.loop_agent_timeout_ms, loop_stream_bytes
         ))
@@ -153,6 +159,8 @@ def create_app(
     def get_villain_client() -> ChatClient:
         if villain_client_factory:
             return villain_client_factory()
+        if config.demo_mode:
+            return DemoVillain()
         if not config.villain_dify_api_key:
             raise AppError(503, "The villain is not configured. Set VILLAIN_DIFY_API_KEY in the backend environment.",
                            "VILLAIN_NOT_CONFIGURED")
@@ -173,6 +181,8 @@ def create_app(
     loop_runner = TrapLoopRunner(
         store, run_store, site_storage, get_loop_agent_client, get_villain_client,
         config.loop_max_rounds, config.run_max_duration_ms,
+        max_attempts=config.demo_attempts if config.demo_mode else 1,
+        attempt_pause_s=config.demo_pause_s,
     )
 
     app.state.config = config
@@ -254,7 +264,7 @@ def create_app(
     @app.get("/health")
     @app.get("/api/health")
     async def health():
-        return {"status": "ok"}
+        return {"status": "ok", "demoMode": config.demo_mode}
 
     @app.get("/api/agents")
     async def list_agents():
@@ -298,7 +308,8 @@ def create_app(
 
     @app.post("/api/agents")
     async def register_agent(body: Any = Body(...)):
-        ensure_dify_configured(config)
+        if not config.demo_mode:
+            ensure_dify_configured(config)
         if not isinstance(body, dict):
             raise AppError(400, "A JSON request body is required.", "INVALID_AGENT_CONFIGURATION")
         name = body.get("name")
@@ -312,9 +323,10 @@ def create_app(
                 "Unexpected agent configuration. Provider credentials must remain server-side.",
                 "INVALID_AGENT_CONFIGURATION",
             )
-        info = await adapter_factory().test_connection()
-        if info["mode"] not in {"agent", "agent-chat"}:
-            raise AppError(422, f'The configured Dify application is "{info["mode"]}", not an Agent application.', "DIFY_WRONG_APP_TYPE")
+        if not config.demo_mode:  # demo mode uses the pretend agent, so Dify is not contacted
+            info = await adapter_factory().test_connection()
+            if info["mode"] not in {"agent", "agent-chat"}:
+                raise AppError(422, f'The configured Dify application is "{info["mode"]}", not an Agent application.', "DIFY_WRONG_APP_TYPE")
         name = name.strip()
         existing = store.list_agents()
         if existing:
@@ -381,7 +393,8 @@ def create_app(
         agent_id, goal, prompt, threshold = checked
         if loop_runner.active_count >= 3:
             raise AppError(429, "The server is already running the maximum number of trials.", "TRIAL_CAPACITY_REACHED")
-        ensure_dify_configured(config)
+        if not config.demo_mode:
+            ensure_dify_configured(config)
         get_villain_client()  # fail now, not mid-loop, if the villain is not configured
         loop = loop_runner.start(agent_id, goal, threshold, prompt)
         return JSONResponse(status_code=202, content={"loop": loop})

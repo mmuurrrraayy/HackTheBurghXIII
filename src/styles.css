@@ -2348,3 +2348,9 @@ body {
     animation: none;
   }
 }
+
+/* Prompts shown in the live log keep their line breaks. */
+.trial-event-entry.is-prompt .trial-event-copy p {
+  white-space: pre-wrap;
+  font-size: .92em;
+}
