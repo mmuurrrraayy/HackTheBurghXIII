@@ -64,7 +64,7 @@ class RequestSizeLimitMiddleware:
         async def replay_receive():
             nonlocal sent
             if sent:
-                return {"type": "http.disconnect"}
+                return await receive()
             sent = True
             return {"type": "http.request", "body": body, "more_body": False}
 
