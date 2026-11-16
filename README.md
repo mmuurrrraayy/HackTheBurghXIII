@@ -1,5 +1,5 @@
 # LABYRINTH — The Agent Trials
-The project is an agentic evaluation loop: user agent vs our agent. First a user defines the settings to give our agent the constraints to build the website around focusing on specific (or any) pitfalls/traps that agents come across whilst performing tasks on the internet. Each round consists of the user's agent performing a task (given by the user or us like "buy x on here for y") on the created browser. The user's agent is scored based on the number of traps it falls for. The scoring system has multiple levels of severity and scores negatively.
+The project is an agentic evaluation system: user agent vs our agent. First a user defines the settings to give our agent the constraints to build the website around focusing on specific (or any) pitfalls/traps that agents come across whilst performing tasks on the internet. Each round consists of the user's agent performing a task (given by the user or us like "buy x on here for y") on the created browser. The user's agent is scored based on the number of traps it falls for. The scoring system has multiple levels of severity and scores negatively.
 Feedback Loop:
  - Option 1: User agent scores above the threshold, website made more challenging by our agent.
  - Option 2: User agent scores below the threshold, a prompt is autonomously written and given to the user agent to improve.
