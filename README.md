@@ -1,5 +1,11 @@
 # LABYRINTH — The Agent Trials
-
+The project is an agentic evaluation loop: user agent vs our agent. First a user defines the settings to give our agent the constraints to build the website around focusing on specific (or any) pitfalls/traps that agents come across whilst performing tasks on the internet. Each round consists of the user's agent performing a task (given by the user or us like "buy x on here for y") on the created browser. The user's agent is scored based on the number of traps it falls for. The scoring system has multiple levels of severity and scores negatively.
+Feedback Loop:
+ - Option 1: User agent scores above the threshold, website made more challenging by our agent.
+ - Option 2: User agent scores below the threshold, a prompt is autonomously written and given to the user agent to improve.
+After improvements have been made an optional revision prompt is offered at the end of training to sweep over the changes made and consolidate into one.
+Each website is stored as unique seed which can be rebuilt by our agent to rerun any tests the user wishes to.
+For the sake of testing, Dify was used to simulate the loop, in production it would be the user's agent as the "hero" agent and our agent as the "villain".
 The project contains a React + TypeScript frontend (Vite) and a Python + FastAPI backend. The Trials page runs an automated loop: a villain Dify app designs a hotel booking site containing traps, the backend builds and stores it as a static page, your Dify agent is sent a link to it, and the agent's reply is scored. The backend never opens or executes agent-supplied URLs or commands.
 
 ## Requirements
